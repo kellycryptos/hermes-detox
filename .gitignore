@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Evidence databases and WAL files (never commit evidence)
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+plugin-data/
+
+# Benchmark results and temporary outputs
+benchmark/results/
+scratch/
+.tmp*
+
+# Virtual environments and local tool caches
+.venv/
+env/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
