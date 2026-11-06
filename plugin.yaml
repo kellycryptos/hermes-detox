@@ -1,0 +1,38 @@
+name: hermes-detox
+version: "0.1.0"
+description: "Tool output firewall for Hermes Agent. Compresses noisy tool results, saves full originals locally, and enables exact line retrieval."
+author: "kellycryptos"
+requires_hermes: ">=0.19.0"
+
+provides_hooks:
+  - transform_tool_result
+  - transform_terminal_output
+
+provides_tools:
+  - detox_inspect
+  - detox_search
+  - detox_status
+
+config_schema:
+  enabled:
+    type: boolean
+    default: true
+    description: "Enable or disable Detox firewall interception"
+  min_size:
+    type: integer
+    default: 2000
+    description: "Minimum character threshold to trigger compression and local storage"
+  head_lines:
+    type: integer
+    default: 5
+    description: "Number of leading lines included in compact report preview"
+  tail_lines:
+    type: integer
+    default: 5
+    description: "Number of trailing lines included in compact report preview"
+  excluded_tools:
+    type: array
+    items:
+      type: string
+    default: []
+    description: "List of tool names exempted from Detox firewall interception"
