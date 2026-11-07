@@ -86,10 +86,13 @@ def _init_db_connection(db_path: Path) -> sqlite3.Connection:
     )
     conn.row_factory = sqlite3.Row
 
-    # Enforce WAL mode for safe concurrent access
-    conn.execute("PRAGMA journal_mode = WAL;")
-    conn.execute("PRAGMA synchronous = NORMAL;")
+    # Configure busy timeout and synchronous first
     conn.execute("PRAGMA busy_timeout = 30000;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    try:
+        conn.execute("PRAGMA journal_mode = WAL;")
+    except Exception:
+        pass
 
     try:
         if db_path.exists():
@@ -155,10 +158,12 @@ class EvidenceStore:
         """Get thread-local SQLite connection."""
         conn = getattr(self._local, "conn", None)
         if conn is None:
-            conn = _init_db_connection(self.db_path)
-            self._local.conn = conn
             with self._lock:
-                self._connections.append(conn)
+                conn = getattr(self._local, "conn", None)
+                if conn is None:
+                    conn = _init_db_connection(self.db_path)
+                    self._local.conn = conn
+                    self._connections.append(conn)
         return conn
 
     def close(self) -> None:
