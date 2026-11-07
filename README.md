@@ -10,6 +10,9 @@
 [![Signal Preservation: 100%](https://img.shields.io/badge/signal%20preservation-100%25%20(28%2F28)-brightgreen.svg)](#empirical-benchmark)
 [![Release: v0.1.0](https://img.shields.io/badge/release-v0.1.0-blue.svg)](https://github.com/kellycryptos/hermes-detox/releases/tag/v0.1.0)
 [![Hermes Agent](https://img.shields.io/badge/hermes--agent-%3E%3D0.19.0-blueviolet.svg)](#compatibility)
+[![Demo Video](https://img.shields.io/badge/demo%20video-watch%20on%20X-black.svg?logo=x)](https://x.com/Kellycryptos/status/2119068376085458987)
+
+> 📺 **Watch the Walkthrough Demo Video on X:** [x.com/Kellycryptos/status/2119068376085458987](https://x.com/Kellycryptos/status/2119068376085458987)
 
 ---
 
@@ -90,6 +93,7 @@ Hermes Detox was engineered specifically for the **Hermes Agent Plugin Hackathon
 | **`/detox` Slash Command** | [`__init__.py#L291-L373`](__init__.py) | Interactive user command line interface supporting `/detox status`, `/detox inspect`, `/detox search`, and `/detox purge`. |
 | **SQLite WAL Storage** | [`store.py#L32-L140`](store.py) | Re-entrant, multi-threaded storage using `PRAGMA journal_mode = WAL` under `<hermes_home>/plugin-data/hermes-detox/`. |
 | **Declarative Manifest** | [`plugin.yaml#L1-L68`](plugin.yaml) | Declares tools, hooks, configuration schema, and SemVer compatibility (`requires_hermes: ">=0.19.0"`). |
+| **Walkthrough Demo Video** | [x.com/Kellycryptos/...](https://x.com/Kellycryptos/status/2119068376085458987) | 60-second live demonstration: Amputation Test, 0.16 ms line retrieval, and 74-test verification. |
 
 ---
 
