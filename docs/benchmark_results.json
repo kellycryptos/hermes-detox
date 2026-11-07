@@ -10,8 +10,8 @@
       "baseline_tokens_est": 3829,
       "delivered_tokens_est": 717,
       "tokens_saved_est": 3112,
-      "transform_ms": 34.12,
-      "inspect_ms": 0.24,
+      "transform_ms": 42.33,
+      "inspect_ms": 0.43,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -24,8 +24,8 @@
       "baseline_tokens_est": 2475,
       "delivered_tokens_est": 473,
       "tokens_saved_est": 2002,
-      "transform_ms": 11.21,
-      "inspect_ms": 0.19,
+      "transform_ms": 12.06,
+      "inspect_ms": 0.14,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -38,8 +38,8 @@
       "baseline_tokens_est": 7480,
       "delivered_tokens_est": 493,
       "tokens_saved_est": 6987,
-      "transform_ms": 18.99,
-      "inspect_ms": 0.31,
+      "transform_ms": 18.82,
+      "inspect_ms": 0.86,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -52,8 +52,8 @@
       "baseline_tokens_est": 3788,
       "delivered_tokens_est": 227,
       "tokens_saved_est": 3561,
-      "transform_ms": 23.39,
-      "inspect_ms": 0.31,
+      "transform_ms": 20.38,
+      "inspect_ms": 0.54,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -66,8 +66,8 @@
       "baseline_tokens_est": 8862,
       "delivered_tokens_est": 455,
       "tokens_saved_est": 8407,
-      "transform_ms": 49.4,
-      "inspect_ms": 0.23,
+      "transform_ms": 61.59,
+      "inspect_ms": 0.24,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -80,8 +80,8 @@
       "baseline_tokens_est": 12500,
       "delivered_tokens_est": 371,
       "tokens_saved_est": 12129,
-      "transform_ms": 387.71,
-      "inspect_ms": 0.57,
+      "transform_ms": 212.84,
+      "inspect_ms": 0.39,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -108,7 +108,7 @@
       "baseline_tokens_est": 1875,
       "delivered_tokens_est": 1875,
       "tokens_saved_est": 0,
-      "transform_ms": 35.34,
+      "transform_ms": 6.36,
       "inspect_ms": 0.0,
       "storage_roundtrip": "N/A (passthrough untouched)"
     },
@@ -122,8 +122,8 @@
       "baseline_tokens_est": 2938,
       "delivered_tokens_est": 258,
       "tokens_saved_est": 2680,
-      "transform_ms": 29.66,
-      "inspect_ms": 0.12,
+      "transform_ms": 23.32,
+      "inspect_ms": 0.31,
       "storage_roundtrip": "PASS (verbatim)"
     }
   ],
@@ -133,8 +133,8 @@
     "total_delivered_chars": 20582,
     "overall_reduction_pct": 88.3,
     "total_tokens_saved_est": 38878,
-    "avg_transform_ms": 65.54,
-    "avg_inspect_ms": 0.28,
+    "avg_transform_ms": 44.19,
+    "avg_inspect_ms": 0.42,
     "critical_signal_preservation_rate": "100.0% (28/28 verified in delivered context)",
     "storage_roundtrip_rate": "100%"
   }

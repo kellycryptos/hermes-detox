@@ -1,13 +1,13 @@
 # Hermes Detox
 
-**The Zero-Loss Diagnostic Firewall for Hermes Agent**  
-*Eliminates 88% of tool noise while guaranteeing 100% preservation of errors, stack traces, and exit codes. Archives raw originals in local zero-network SQLite WAL for 0.16 ms surgical retrieval.*
+**Tool Output Firewall for Hermes Agent**  
+*Intercepts large outputs before truncation, archives full raw text in local SQLite WAL, and provides compact reports with surgical line retrieval.*
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 [![Dependencies: 0 external](https://img.shields.io/badge/dependencies-0%20external-success.svg)](#security--privacy)
 [![Tests: 74/74 Passing](https://img.shields.io/badge/tests-74%2F74%20passing-brightgreen.svg)](#verification--test-suite)
-[![Context Reduction: 88.3%](https://img.shields.io/badge/context%20reduction-88.3%25-blue.svg)](#empirical-benchmark)
-[![Signal Preservation: 100%](https://img.shields.io/badge/signal%20preservation-100%25%20(28%2F28)-brightgreen.svg)](#empirical-benchmark)
+[![Context Reduction: 88.2%](https://img.shields.io/badge/context%20reduction-88.2%25-blue.svg)](#empirical-benchmark)
+[![Storage Fidelity: 100%](https://img.shields.io/badge/stored%20fidelity-100%25%20verified-brightgreen.svg)](#empirical-benchmark)
 [![Release: v0.1.0](https://img.shields.io/badge/release-v0.1.0-blue.svg)](https://github.com/kellycryptos/hermes-detox/releases/tag/v0.1.0)
 [![Hermes Agent](https://img.shields.io/badge/hermes--agent-%3E%3D0.19.0-blueviolet.svg)](#compatibility)
 [![Demo Video](https://img.shields.io/badge/demo%20video-watch%20on%20X-black.svg?logo=x)](https://x.com/Kellycryptos/status/2119068376085458987)
@@ -171,7 +171,7 @@ Tested across 9 realistic developer workloads using [`benchmarks/run_benchmark.p
 | **Short Output Below Threshold** (<6k) | 1,095 | 1,095 / 273 | 1,095 / 273 | **0.0%** | **1/1 (100%)** | **0** | 0.01 ms | **Passthrough (untouched)** |
 | **Low-Reducibility Payload** (0.55 gate) | 7,500 | 7,500 / 1,875 | 7,500 / 1,875 | **0.0%** | **1/1 (100%)** | **0** | 6.77 ms | **Passthrough (gate bypass)** |
 | **Output with Secret Strings** (`sk-demo`) | 11,752 | 11,752 / 2,943 | 1,032 / 258 | **91.2%** | **1/1 (100%)** | **2,680** | 17.68 ms | **100% PASS (verbatim)** |
-| **TOTAL / OVERALL** | **233,005** | **176,092 / 44,023** | **20,582 / 5,145** | **88.3%** | **28/28 (100.0%)** | **38,878** | **31.92 ms** | **100% Byte Fidelity** |
+| **TOTAL / OVERALL** | **233,005** | **176,092 / 44,023** | **20,800 / 5,200** | **88.2%** | **28/28 (100.0%)** | **38,823** | **31.92 ms** | **100% Byte Fidelity** |
 
 ---
 
