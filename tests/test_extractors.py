@@ -448,7 +448,8 @@ class TestStage1Regression(unittest.TestCase):
 
     def test_stage1_tests_still_pass(self):
         import subprocess
-        uv = r"C:\Users\HP\.local\bin\uv.exe"
+        import shutil
+        uv = shutil.which("uv") or "uv"
         test_path = str(PROJECT_ROOT / "tests" / "test_core.py")
         result = subprocess.run(
             [uv, "run", "python", test_path, "-v"],
