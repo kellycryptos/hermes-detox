@@ -7,6 +7,7 @@ requires_hermes: ">=0.19.0"
 provides_hooks:
   - transform_tool_result
   - transform_terminal_output
+  - on_session_reset
 
 provides_tools:
   - detox_inspect
@@ -22,6 +23,14 @@ config_schema:
     type: integer
     default: 6000
     description: "Minimum character threshold to trigger compression and local storage"
+  max_report_chars:
+    type: integer
+    default: 3000
+    description: "Maximum character budget for compact reports"
+  max_ratio:
+    type: float
+    default: 0.55
+    description: "Maximum compression ratio (report size / original size) allowed before fail-open"
   head_lines:
     type: integer
     default: 5
@@ -36,3 +45,15 @@ config_schema:
       type: string
     default: []
     description: "List of tool names exempted from Detox firewall interception"
+  retention_days:
+    type: integer
+    default: 30
+    description: "Days to retain stored evidence records before pruning"
+  max_store_size_mb:
+    type: integer
+    default: 100
+    description: "Maximum local evidence store size in megabytes before pruning oldest records"
+  debug:
+    type: boolean
+    default: false
+    description: "Enable verbose debug logging for Detox operations"

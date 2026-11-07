@@ -19,43 +19,26 @@ _PKG_ROOT = Path(__file__).resolve().parent
 if str(_PKG_ROOT) not in sys.path:
     sys.path.append(str(_PKG_ROOT))
 
+from config import DetoxConfig, get_config, load_config, set_config
 from detox_tools.tool_inspect import SCHEMA as INSPECT_SCHEMA, handle_detox_inspect
 from detox_tools.tool_search import SCHEMA as SEARCH_SCHEMA, handle_detox_search
 from detox_tools.tool_status import SCHEMA as STATUS_SCHEMA, handle_detox_status
 from extractors import detect_and_extract_summary
 from report import build_compact_report
+from retention import maybe_run_retention_prune, run_retention_prune
 from store import EvidenceStore
 
 logger = logging.getLogger("hermes_detox")
 
-# Default configuration parameters
-DEFAULT_CONFIG = {
-    "enabled": True,
-    "min_size": 6000,
-    "head_lines": 5,
-    "tail_lines": 5,
-    "excluded_tools": [],
-}
-
-_ACTIVE_CONFIG: Dict[str, Any] = dict(DEFAULT_CONFIG)
-
 
 def get_active_config() -> Dict[str, Any]:
     """Return active configuration dictionary."""
-    return _ACTIVE_CONFIG
+    return get_config().to_dict()
 
 
 def _load_plugin_config(ctx: Any) -> None:
     """Load configuration from Hermes context safely without network/heavy IO."""
-    global _ACTIVE_CONFIG
-    _ACTIVE_CONFIG = dict(DEFAULT_CONFIG)
-    try:
-        if hasattr(ctx, "get_config") and callable(ctx.get_config):
-            cfg = ctx.get_config()
-            if isinstance(cfg, dict):
-                _ACTIVE_CONFIG.update(cfg)
-    except Exception as exc:
-        logger.debug("Could not read ctx config, using defaults: %s", exc)
+    load_config(ctx)
 
 
 def on_transform_tool_result(
@@ -79,8 +62,8 @@ def on_transform_tool_result(
     FAIL-OPEN: Any unexpected exception returns None.
     """
     try:
-        cfg = _ACTIVE_CONFIG
-        if not cfg.get("enabled", True):
+        cfg = get_config()
+        if not cfg.enabled:
             return None
 
         # Do not intercept Detox's own retrieval tools to prevent recursion loops
@@ -88,8 +71,7 @@ def on_transform_tool_result(
             return None
 
         # Check configured tool exclusions
-        excluded = cfg.get("excluded_tools", [])
-        if tool_name in excluded:
+        if tool_name in cfg.excluded_tools:
             return None
 
         # Ensure result is present and stringifiable
@@ -105,7 +87,7 @@ def on_transform_tool_result(
 
         raw_len = len(raw_output)
 
-        min_threshold = int(cfg.get("min_size", 6000))
+        min_threshold = cfg.min_size
 
         # Small outputs stay completely unchanged
         if raw_len <= min_threshold:
@@ -124,8 +106,8 @@ def on_transform_tool_result(
         content_type = extractor_res.get("content_type", "text/plain") if extractor_res else "text/plain"
 
         store = EvidenceStore.get_instance()
-        head_count = int(cfg.get("head_lines", 5))
-        tail_count = int(cfg.get("tail_lines", 5))
+        head_count = cfg.head_lines
+        tail_count = cfg.tail_lines
 
         # Generate evidence ID and save original securely
         ev_id = store.save(
@@ -149,8 +131,8 @@ def on_transform_tool_result(
             extractor_summary=extractor_res,
         )
 
-        # Check compression ratio: only replace if report achieves significant reduction (at most ~half original size)
-        max_ratio = float(cfg.get("max_ratio", 0.55))
+        # Check compression ratio: only replace if report achieves significant reduction
+        max_ratio = cfg.max_ratio
         if len(compact_report) > raw_len * max_ratio:
             logger.debug(
                 "Detox compact report (%d chars) did not achieve reduction threshold vs original (%d chars); keeping original",
@@ -188,8 +170,8 @@ def on_transform_terminal_output(
 ) -> Optional[str]:
     """Hook: intercept terminal outputs before Hermes's 50k inline truncation drops the middle."""
     try:
-        cfg = _ACTIVE_CONFIG
-        if not cfg.get("enabled", True):
+        cfg = get_config()
+        if not cfg.enabled:
             return None
 
         # Ignore background process lifecycle/polling messages (returncode is None and empty env_type)
@@ -197,7 +179,7 @@ def on_transform_terminal_output(
             logger.debug("Skipping background process output (returncode=None, env_type empty)")
             return None
 
-        if not output or len(output) <= int(cfg.get("min_size", 6000)):
+        if not output or len(output) <= cfg.min_size:
             return None
 
         status = "success" if returncode == 0 else "error"
@@ -229,13 +211,13 @@ def on_transform_terminal_output(
             original_output=output,
             evidence_id=ev_id,
             status=status,
-            head_lines_count=int(cfg.get("head_lines", 5)),
-            tail_lines_count=int(cfg.get("tail_lines", 5)),
+            head_lines_count=cfg.head_lines,
+            tail_lines_count=cfg.tail_lines,
             extractor_summary=extractor_res,
         )
 
-        # Check compression ratio: only replace if report achieves significant reduction (at most ~half original size)
-        max_ratio = float(cfg.get("max_ratio", 0.55))
+        # Check compression ratio: only replace if report achieves significant reduction
+        max_ratio = cfg.max_ratio
         if len(report) > len(output) * max_ratio:
             logger.debug(
                 "Terminal report (%d chars) did not achieve reduction threshold vs original (%d chars); keeping original",
@@ -281,11 +263,13 @@ def on_session_delete(session_id: str = "", **kwargs: Any) -> None:
 
 
 def on_session_reset(session_id: str = "", **kwargs: Any) -> None:
-    """Observer hook: purge stored evidence records when session is reset."""
+    """Observer hook: purge stored evidence records for reset session and run throttled retention."""
     try:
+        store = EvidenceStore.get_instance()
         if session_id:
-            store = EvidenceStore.get_instance()
             store.purge_session(session_id)
+        # Throttled prune (runs at most once every 6h, non-blocking)
+        maybe_run_retention_prune(store=store)
     except Exception as exc:
         logger.debug("on_session_reset error: %s", exc)
 
@@ -297,9 +281,10 @@ def handle_detox_slash_command(args: str) -> str:
         return (
             "Hermes Detox — Tool Output Firewall\n\n"
             "Commands:\n"
-            "  /detox status                                - Show firewall savings metrics\n"
+            "  /detox status                                - Show firewall savings and store metrics\n"
             "  /detox inspect <id> [start_line] [end_line]  - Inspect original lines\n"
             "  /detox search <phrase> [evidence_id]         - Search original outputs\n"
+            "  /detox purge [days]                          - Run retention cleanup or purge older than N days\n"
         )
 
     parts = shlex.split(raw_args)
@@ -308,12 +293,17 @@ def handle_detox_slash_command(args: str) -> str:
     if subcmd == "status":
         res = handle_detox_status({})
         data = json.loads(res)
+        store = EvidenceStore.get_instance()
+        db_size_mb = store.get_db_size() / (1024 * 1024)
+        total_records = store.count_records()
         return (
             f"Detox Firewall Status:\n"
             f"  Outputs intercepted: {data.get('outputs_intercepted', 0):,}\n"
             f"  Characters in:       {data.get('characters_in', 0):,}\n"
             f"  Characters out:      {data.get('characters_out', 0):,}\n"
-            f"  Characters saved:    {data.get('characters_saved', 0):,} ({data.get('saved_percentage', 0.0)}% reduction)"
+            f"  Characters saved:    {data.get('characters_saved', 0):,} ({data.get('saved_percentage', 0.0)}% reduction)\n"
+            f"  Stored records:      {total_records:,}\n"
+            f"  Database size:       {db_size_mb:.2f} MB"
         )
 
     if subcmd == "inspect":
@@ -348,6 +338,23 @@ def handle_detox_slash_command(args: str) -> str:
             lines_out.append(f"[{m['evidence_id']}:{m['line_number']}] {m['line']}")
         return "\n".join(lines_out)
 
+    if subcmd == "purge":
+        days = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+        store = EvidenceStore.get_instance()
+        if days is not None:
+            deleted = store.purge_older_than(days)
+            return f"Purged {deleted} evidence records older than {days} days."
+        else:
+            res = run_retention_prune(store=store)
+            return (
+                f"Detox Retention Purge Completed:\n"
+                f"  Expired records purged:  {res.get('expired_purged', 0):,}\n"
+                f"  Size-cap records purged: {res.get('size_cap_purged', 0):,}\n"
+                f"  Total records purged:    {res.get('total_purged', 0):,}\n"
+                f"  Records remaining:       {res.get('records_remaining', 0):,}\n"
+                f"  Database size:           {res.get('current_db_bytes', 0) / (1024*1024):.2f} MB"
+            )
+
     return f"Unknown /detox sub-command: '{subcmd}'. Type `/detox help` for available options."
 
 
@@ -358,6 +365,7 @@ def register(ctx: Any) -> None:
     if hasattr(ctx, "register_hook") and callable(ctx.register_hook):
         ctx.register_hook("transform_tool_result", on_transform_tool_result)
         ctx.register_hook("transform_terminal_output", on_transform_terminal_output)
+        ctx.register_hook("on_session_reset", on_session_reset)
 
     if hasattr(ctx, "register_tool") and callable(ctx.register_tool):
         ctx.register_tool(

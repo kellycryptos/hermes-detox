@@ -392,6 +392,82 @@ class EvidenceStore:
         logger.info("Purged %d evidence records for session '%s'", deleted, session_id)
         return deleted
 
+    def count_records(self, session_id: Optional[str] = None) -> int:
+        """Return the number of stored evidence records."""
+        conn = self._get_conn()
+        if session_id:
+            cursor = conn.execute("SELECT COUNT(*) FROM evidence WHERE session_id = ?", (session_id,))
+        else:
+            cursor = conn.execute("SELECT COUNT(*) FROM evidence")
+        row = cursor.fetchone()
+        return int(row[0]) if row else 0
+
+    def get_db_size(self) -> int:
+        """Return total disk size in bytes of the SQLite database including WAL and SHM files."""
+        total = 0
+        for p in (
+            self.db_path,
+            self.db_path.with_name(self.db_path.name + "-wal"),
+            self.db_path.with_name(self.db_path.name + "-shm"),
+        ):
+            try:
+                if p.exists():
+                    total += p.stat().st_size
+            except OSError:
+                pass
+        return total
+
+    def purge_older_than(self, days: int) -> int:
+        """Purge evidence records older than the specified number of days."""
+        if days < 0:
+            return 0
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+        cutoff_str = cutoff.isoformat()
+
+        conn = self._get_conn()
+        with conn:
+            cursor = conn.execute("DELETE FROM evidence WHERE timestamp < ?", (cutoff_str,))
+            deleted = cursor.rowcount
+            if deleted > 0:
+                try:
+                    conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
+                except Exception:
+                    pass
+        logger.info("Purged %d evidence records older than %d days (before %s)", deleted, days, cutoff_str)
+        return deleted
+
+    def enforce_size_cap(self, max_bytes: int) -> int:
+        """Purge oldest evidence records until the database disk size is within max_bytes."""
+        if max_bytes <= 0:
+            return 0
+
+        conn = self._get_conn()
+        total_deleted = 0
+
+        while self.get_db_size() > max_bytes:
+            with conn:
+                cursor = conn.execute(
+                    "SELECT id FROM evidence ORDER BY timestamp ASC LIMIT 50"
+                )
+                rows = cursor.fetchall()
+                if not rows:
+                    break
+                ids = [r["id"] for r in rows]
+                placeholders = ",".join("?" for _ in ids)
+                del_cursor = conn.execute(
+                    f"DELETE FROM evidence WHERE id IN ({placeholders})", ids
+                )
+                deleted = del_cursor.rowcount
+                total_deleted += deleted
+                try:
+                    conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+                except Exception:
+                    pass
+
+        if total_deleted > 0:
+            logger.info("Size cap enforced (%d bytes): purged %d oldest evidence records", max_bytes, total_deleted)
+        return total_deleted
+
     def relink_session(self, old_session_id: str, new_session_id: str) -> int:
         """Relink evidence records from old_session_id to new_session_id (e.g. after compaction)."""
         if not old_session_id or not new_session_id:

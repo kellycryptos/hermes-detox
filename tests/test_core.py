@@ -78,6 +78,7 @@ class TestDetoxCore(unittest.TestCase):
 
         self.assertIn("transform_tool_result", ctx.hooks)
         self.assertIn("transform_terminal_output", ctx.hooks)
+        self.assertIn("on_session_reset", ctx.hooks)
         self.assertIn("detox_inspect", ctx.tools)
         self.assertIn("detox_search", ctx.tools)
         self.assertIn("detox_status", ctx.tools)
