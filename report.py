@@ -13,7 +13,9 @@ from typing import Any, Dict, List, Optional, Tuple
 _ERROR_PATTERNS = re.compile(
     r"(error|fatal|exception|traceback|failed|failure|panic|cannot find|not found|"
     r"syntaxerror|typeerror|valueerror|runtimeerror|assert|permission denied|"
-    r"undefined|referenceerror|corrupted|timed out|timeout)",
+    r"undefined|referenceerror|corrupted|timed out|timeout|"
+    r"critical|segfault|segmentation fault|abort|aborted|oom|out of memory|killed|"
+    r"connection refused|connection reset|refused|nullpointer|unhandled)",
     re.IGNORECASE,
 )
 

@@ -69,8 +69,8 @@ def detect_and_extract_summary(
         except Exception as exc:
             logger.debug("File listing extraction skipped: %s", exc)
 
-    # 5. Terminal / shell outputs
-    if any(k in tool_lower for k in ("terminal", "bash", "shell", "exec", "cmd", "run")):
+    # 5. Terminal / shell / log outputs
+    if any(k in tool_lower for k in ("terminal", "bash", "shell", "exec", "cmd", "run", "log")):
         try:
             res = extract_terminal_summary(raw_output, status=status, returncode=returncode)
             if res is not None:
