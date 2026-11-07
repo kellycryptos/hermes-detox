@@ -409,6 +409,35 @@ class TestDetoxCore(unittest.TestCase):
         self.assertEqual(inspect_data["lines"][1], lines[749])
         self.assertIn("CRITICAL_MIDDLE_MARKER_99887766", inspect_data["content"])
 
+    def test_real_terminal_json_wrapped_double_wrap_guard(self):
+        """Integration test with handle_function_call on terminal tool.
+        Verifies that when terminal tool returns JSON-wrapped output:
+        {"output": "=== [DETOX FIREWALL: ...", "exit_code": 0, "error": null}
+        the double-wrap guard matches and the model receives exactly ONE report."""
+        try:
+            from hermes_cli.plugins import get_plugin_manager
+            pm = get_plugin_manager()
+            pm.discover_and_load()
+            from model_tools import handle_function_call
+        except ImportError:
+            self.skipTest("Hermes runtime not importable in this environment")
+
+        cmd = f'"{sys.executable}" -c "for i in range(200): print(f\'line {{i}}: {chr(120)*40}\')"'
+        res = handle_function_call("terminal", {"command": cmd})
+        self.assertIsInstance(res, str)
+        parsed = json.loads(res)
+        self.assertIn("output", parsed)
+        output_text = parsed["output"]
+        self.assertIn("[DETOX FIREWALL: terminal", output_text)
+
+        # Count occurrences of Detox banner across entire response: MUST BE EXACTLY 1 (no double wrap)
+        banner_count = res.count("=== [DETOX FIREWALL:")
+        self.assertEqual(
+            banner_count,
+            1,
+            f"Expected exactly 1 firewall report, but found {banner_count} (double wrapped!)",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
