@@ -1,6 +1,6 @@
 name: hermes-detox
 version: "0.1.0"
-description: "The Zero-Loss Diagnostic Firewall for Hermes Agent. Eliminates 88% of tool noise while guaranteeing 100% preservation of critical failure signals."
+description: "Tool output firewall for Hermes Agent. Intercepts large outputs before truncation, saves full raw text in local SQLite WAL, and delivers compact reports with on-demand retrieval tools."
 author: "kellycryptos"
 requires_hermes: ">=0.19.0"
 

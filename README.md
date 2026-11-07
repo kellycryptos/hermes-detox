@@ -6,7 +6,7 @@ Your context window deserves protection.
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20external-success.svg)](#security-and-privacy)
 [![Hermes](https://img.shields.io/badge/hermes--agent-%3E%3D0.19.0-blueviolet.svg)](#compatibility)
 [![Tests](https://img.shields.io/badge/tests-74-blue.svg)](#development)
-[![Context Reduction](https://img.shields.io/badge/context%20reduction-88.3%25-blue.svg)](#benchmark)
+[![Context Reduction](https://img.shields.io/badge/context%20reduction-about%2088%25-blue.svg)](#benchmark)
 
 Hermes Detox is a plugin for [Hermes Agent](https://hermes-agent.nousresearch.com/) that stops huge tool outputs from flooding the model's context. When a tool returns a large result, Detox saves the full original on your machine, hands the model a short report with an evidence ID, and lets the model pull back exact lines or search the original whenever it needs them.
 
@@ -192,7 +192,7 @@ These figures come from synthetic fixtures built to resemble common developer ou
 | Output with secret-like strings | 11,752 | 1,032 | 91.2% | 2,680 |
 | Short output below threshold | 1,095 | 1,095 | 0.0% | 0 |
 | Output the 0.55 gate rejects | 7,500 | 7,500 | 0.0% | 0 |
-| **Total** | **176,092** | **20,582** | **88.3%** | **38,878** |
+| **Total** | **176,092** | **20,582** | **about 88%** | **about 38,800 (estimate)** |
 
 On the author's machine, transforming an output took tens of milliseconds and retrieving lines took under a millisecond. Run the benchmark to see figures for your hardware.
 
