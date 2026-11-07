@@ -31,7 +31,7 @@ logger = logging.getLogger("hermes_detox")
 # Default configuration parameters
 DEFAULT_CONFIG = {
     "enabled": True,
-    "min_size": 2000,
+    "min_size": 6000,
     "head_lines": 5,
     "tail_lines": 5,
     "excluded_tools": [],
@@ -97,9 +97,14 @@ def on_transform_tool_result(
             return None
 
         raw_output = result if isinstance(result, str) else str(result)
+
+        # Do not re-intercept an output that has already been transformed (e.g. by terminal hook)
+        if raw_output.startswith("=== [DETOX FIREWALL:"):
+            return None
+
         raw_len = len(raw_output)
 
-        min_threshold = int(cfg.get("min_size", 2000))
+        min_threshold = int(cfg.get("min_size", 6000))
 
         # Small outputs stay completely unchanged
         if raw_len <= min_threshold:
@@ -186,7 +191,12 @@ def on_transform_terminal_output(
         if not cfg.get("enabled", True):
             return None
 
-        if not output or len(output) <= int(cfg.get("min_size", 2000)):
+        # Ignore background process lifecycle/polling messages (returncode is None and empty env_type)
+        if returncode is None and not env_type:
+            logger.debug("Skipping background process output (returncode=None, env_type empty)")
+            return None
+
+        if not output or len(output) <= int(cfg.get("min_size", 6000)):
             return None
 
         status = "success" if returncode == 0 else "error"

@@ -20,7 +20,7 @@ config_schema:
     description: "Enable or disable Detox firewall interception"
   min_size:
     type: integer
-    default: 2000
+    default: 6000
     description: "Minimum character threshold to trigger compression and local storage"
   head_lines:
     type: integer

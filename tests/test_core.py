@@ -84,7 +84,7 @@ class TestDetoxCore(unittest.TestCase):
         self.assertIn("detox", ctx.commands)
 
     def test_small_output_unchanged(self):
-        """Outputs below min_size threshold must return None (untouched)."""
+        """Outputs below min_size threshold (6,000 chars) must return None (untouched)."""
         small_text = "Short tool output\nEverything looks good."
         res = on_transform_tool_result(
             tool_name="git_status",
@@ -93,18 +93,27 @@ class TestDetoxCore(unittest.TestCase):
         )
         self.assertIsNone(res, "Small outputs must return None to leave them unchanged")
 
+        # 5,000 character output (below 6,000 default threshold) must also return None
+        below_thresh = "A" * 5000
+        res_below = on_transform_tool_result(
+            tool_name="verbose_query",
+            result=below_thresh,
+            session_id="test_sess",
+        )
+        self.assertIsNone(res_below, "5,000 char output must stay untouched with default 6,000 threshold")
+
     def test_empty_output_handled(self):
         """Empty outputs must return None without raising."""
         self.assertIsNone(on_transform_tool_result(tool_name="test", result=""))
         self.assertIsNone(on_transform_tool_result(tool_name="test", result=None))
 
     def test_large_output_replaced_and_recoverable(self):
-        """Large outputs must be replaced with compact report and recoverable via inspect."""
-        # Create 3,000 character output across 60 lines
-        lines = [f"Line {i:03d}: System check log entry with payload {i * 42}" for i in range(1, 61)]
+        """Large outputs (>6,000 chars) must be replaced with compact report and recoverable via inspect."""
+        # Create 8,500 character output across 160 lines
+        lines = [f"Line {i:03d}: System check log entry with payload {i * 42}" for i in range(1, 161)]
         lines[25] = "Line 026: CRITICAL ERROR - Database connection timeout"
         large_output = "\n".join(lines)
-        self.assertGreater(len(large_output), 2000)
+        self.assertGreater(len(large_output), 6000)
 
         compact_report = on_transform_tool_result(
             tool_name="run_migrations",
@@ -122,7 +131,7 @@ class TestDetoxCore(unittest.TestCase):
         self.assertIsNotNone(match)
         ev_id = match.group(1)
 
-        # Inspect exact lines 24 to 28
+        # Inspect exact lines 25 to 27
         inspect_raw = handle_detox_inspect({
             "evidence_id": ev_id,
             "start_line": 25,
@@ -156,7 +165,7 @@ class TestDetoxCore(unittest.TestCase):
 
     def test_error_status_preserved_verbatim(self):
         """Results with error status/type/message must preserve error details verbatim."""
-        noisy_output = "info line\n" * 300 + "Traceback (most recent call last):\n  File 'app.py', line 12\nZeroDivisionError: division by zero\n" + "end line\n" * 50
+        noisy_output = "info line\n" * 800 + "Traceback (most recent call last):\n  File 'app.py', line 12\nZeroDivisionError: division by zero\n" + "end line\n" * 100
         
         report = on_transform_tool_result(
             tool_name="execute_python",
@@ -297,6 +306,108 @@ class TestDetoxCore(unittest.TestCase):
         self.assertEqual(deleted, 1)
         record_after = store.get(ev_id, session_id="sess_new")
         self.assertIsNone(record_after)
+
+    def test_background_process_output_ignored(self):
+        """Background process notifications (returncode=None, env_type empty) must NOT create evidence."""
+        store = EvidenceStore.get_instance()
+        bg_output = "Process #402 status: RUNNING. Polled output stream.\n" * 200  # > 6,000 chars
+        self.assertGreater(len(bg_output), 6000)
+
+        res = on_transform_terminal_output(
+            command="",
+            output=bg_output,
+            returncode=None,
+            env_type="",
+            session_id="sess_bg",
+        )
+        self.assertIsNone(res, "Background process lifecycle outputs must return None")
+
+        # Confirm no evidence record was stored
+        status_raw = handle_detox_status({}, session_id="sess_bg")
+        status_data = json.loads(status_raw)
+        self.assertEqual(status_data["outputs_intercepted"], 0, "No evidence should be stored for background poll/wait")
+
+    def test_parallel_terminal_no_id_swap(self):
+        """Two terminal calls in same session create distinct evidence IDs without swapping or cross-contamination."""
+        term_output_1 = "Build job 1 starting\n" + ("Compiling module alpha\n" * 300) + "Build job 1 completed\n"
+        term_output_2 = "Build job 2 starting\n" + ("Compiling module beta\n" * 300) + "Build job 2 completed\n"
+        self.assertGreater(len(term_output_1), 6000)
+        self.assertGreater(len(term_output_2), 6000)
+
+        report_1 = on_transform_terminal_output(
+            command="make target_alpha",
+            output=term_output_1,
+            returncode=0,
+            env_type="bash",
+            session_id="sess_parallel",
+        )
+        report_2 = on_transform_terminal_output(
+            command="make target_beta",
+            output=term_output_2,
+            returncode=0,
+            env_type="bash",
+            session_id="sess_parallel",
+        )
+
+        self.assertIsNotNone(report_1)
+        self.assertIsNotNone(report_2)
+
+        ev_1 = re.search(r"evidence: `(ev_[a-f0-9]+)`", report_1).group(1)
+        ev_2 = re.search(r"evidence: `(ev_[a-f0-9]+)`", report_2).group(1)
+        self.assertNotEqual(ev_1, ev_2, "Parallel calls must receive distinct evidence IDs")
+
+        # Inspect ev_1 -> should contain alpha, NOT beta
+        inspect_1 = json.loads(handle_detox_inspect({"evidence_id": ev_1, "start_line": 2, "end_line": 4}))
+        self.assertIn("alpha", inspect_1["content"])
+        self.assertNotIn("beta", inspect_1["content"])
+
+        # Inspect ev_2 -> should contain beta, NOT alpha
+        inspect_2 = json.loads(handle_detox_inspect({"evidence_id": ev_2, "start_line": 2, "end_line": 4}))
+        self.assertIn("beta", inspect_2["content"])
+        self.assertNotIn("alpha", inspect_2["content"])
+
+        # Second guard: transform_tool_result must NOT re-intercept already transformed reports
+        second_pass = on_transform_tool_result(
+            tool_name="terminal",
+            result=report_1,
+            session_id="sess_parallel",
+        )
+        self.assertIsNone(second_pass, "Already-transformed compact reports must return None to prevent double-wrapping")
+
+    def test_terminal_over_50k_untruncated(self):
+        """Hermes truncates terminal output at 50,000 characters (keeping 40% head and 60% tail).
+        Verify Detox captures full >50k output and recovers exact lines from the middle."""
+        # Create 75,000 character output across 1,500 lines
+        lines = [f"Line {i:04d}: Normal log entry streaming telemetry packet {i}" for i in range(1, 1501)]
+        # Put critical marker at line 750 (exact middle, character position ~37,500)
+        lines[749] = "Line 0750: CRITICAL_MIDDLE_MARKER_99887766 - Root cause found here"
+        huge_output = "\n".join(lines)
+        self.assertGreater(len(huge_output), 70000, "Output must significantly exceed Hermes's 50k cap")
+
+        report = on_transform_terminal_output(
+            command="tail -n 1500 /var/log/app.log",
+            output=huge_output,
+            returncode=0,
+            env_type="bash",
+            session_id="sess_50k",
+        )
+
+        self.assertIsNotNone(report)
+        ev_id = re.search(r"evidence: `(ev_[a-f0-9]+)`", report).group(1)
+
+        # In standard Hermes, line 750 would be completely destroyed by the 50k truncation middle replacement
+        # In Detox, line 750 is 100% preserved in SQLite and retrievable via detox_inspect
+        inspect_raw = handle_detox_inspect({
+            "evidence_id": ev_id,
+            "start_line": 749,
+            "end_line": 751,
+        }, session_id="sess_50k")
+
+        inspect_data = json.loads(inspect_raw)
+        self.assertTrue(inspect_data["success"])
+        self.assertEqual(len(inspect_data["lines"]), 3)
+        self.assertEqual(inspect_data["lines"][1], lines[749])
+        self.assertIn("CRITICAL_MIDDLE_MARKER_99887766", inspect_data["content"])
 
 
 if __name__ == "__main__":
