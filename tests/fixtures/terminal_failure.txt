@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "src/server/database.py", line 142, in connect_pool
+    self._pool = await asyncpg.create_pool(dsn=self.dsn, min_size=5, max_size=20)
+  File "/usr/local/lib/python3.13/site-packages/asyncpg/pool.py", line 428, in create_pool
+    await pool._initialize()
+  File "/usr/local/lib/python3.13/site-packages/asyncpg/pool.py", line 456, in _initialize
+    await first_ch.connect()
+  File "/usr/local/lib/python3.13/site-packages/asyncpg/connection.py", line 2212, in connect
+    return await connect_utils._connect(
+  File "/usr/local/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1024, in _connect
+    raise ConnectionRefusedError(f"connection to server at '127.0.0.1', port 5432 failed: Connection refused")
+ConnectionRefusedError: connection to server at '127.0.0.1', port 5432 failed: Connection refused
+Command failed with exit code 1
+[INFO] Attempting graceful shutdown of remaining worker threads...
+[INFO] Worker 1 stopped
+[INFO] Worker 2 stopped
+[INFO] Worker 3 stopped
+[INFO] Shutdown complete.

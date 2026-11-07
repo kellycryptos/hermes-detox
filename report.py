@@ -2,6 +2,7 @@
 
 Transforms large or noisy tool outputs into a clear, structured summary
 that preserves critical error messages and provides exact retrieval cues.
+Supports content-aware extractor summaries for JSON, tests, builds, listings, and terminal.
 """
 
 from __future__ import annotations
@@ -47,6 +48,7 @@ def build_compact_report(
     error_message: Optional[str] = None,
     head_lines_count: int = 5,
     tail_lines_count: int = 5,
+    extractor_summary: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Build a deterministic, informative compact report for LLM context."""
     lines = original_output.splitlines()
@@ -70,15 +72,9 @@ def build_compact_report(
                 error_parts.append("Status: Error detected in execution")
         error_verbatim_block = "\n".join(f"> [!CRITICAL] {part}" for part in error_parts) + "\n\n"
 
-    # 2. Extract Head & Tail
-    head = lines[:head_lines_count]
-    tail = lines[-tail_lines_count:] if total_lines > head_lines_count else []
-
-    # 3. Extract all diagnostic lines
-    diagnostics = extract_diagnostic_lines(lines)
-
     report_lines: List[str] = []
-    report_lines.append(f"=== [DETOX FIREWALL: {tool_name}] ===")
+    category_suffix = f" ({extractor_summary['content_type']})" if (extractor_summary and "content_type" in extractor_summary) else ""
+    report_lines.append(f"=== [DETOX FIREWALL: {tool_name}]{category_suffix} ===")
     report_lines.append(
         f"Original output ({orig_chars:,} chars, {total_lines:,} lines) saved to evidence: `{evidence_id}`"
     )
@@ -88,21 +84,34 @@ def build_compact_report(
         report_lines.append(error_verbatim_block.strip())
         report_lines.append("")
 
-    # Head preview
+    # 2. Content-Aware Extractor Summary (if available)
+    if extractor_summary and extractor_summary.get("summary_text"):
+        report_lines.append("--- Extracted Summary ---")
+        report_lines.append(extractor_summary["summary_text"].strip())
+        report_lines.append("")
+
+    # 3. Head preview
+    head = lines[:head_lines_count]
+    tail = lines[-tail_lines_count:] if total_lines > head_lines_count else []
+
     report_lines.append(f"--- Head (Lines 1-{len(head)}) ---")
     for i, l in enumerate(head, start=1):
         report_lines.append(f"{i:4d} | {l}")
 
-    # Middle diagnostics
+    # 4. Diagnostic findings (errors, warnings, failures with line numbers)
+    diagnostics = extract_diagnostic_lines(lines)
     if diagnostics:
-        report_lines.append("")
-        report_lines.append(f"--- Diagnostic Findings ({len(diagnostics)} lines) ---")
-        for line_no, sev, l in diagnostics:
-            if line_no <= len(head) or (tail and line_no > total_lines - len(tail)):
-                continue
-            report_lines.append(f"{line_no:4d} [{sev}] | {l}")
+        unseen = [
+            (line_no, sev, l) for line_no, sev, l in diagnostics
+            if line_no > len(head) and (not tail or line_no <= total_lines - len(tail))
+        ]
+        if unseen:
+            report_lines.append("")
+            report_lines.append(f"--- Diagnostic Findings ({len(unseen)} lines) ---")
+            for line_no, sev, l in unseen:
+                report_lines.append(f"{line_no:4d} [{sev}] | {l}")
 
-    # Tail preview
+    # 5. Tail preview
     if tail and (total_lines > head_lines_count):
         tail_start = total_lines - len(tail) + 1
         report_lines.append("")
@@ -110,7 +119,7 @@ def build_compact_report(
         for i, l in enumerate(tail, start=tail_start):
             report_lines.append(f"{i:4d} | {l}")
 
-    # Retrieval instructions
+    # 6. Actionable Retrieval Instructions
     report_lines.append("")
     report_lines.append("--- Retrieval ---")
     report_lines.append(

@@ -1,0 +1,60 @@
+{
+  "api_version": "v2.4",
+  "status": "partial_failure",
+  "request_id": "req_8849204859a",
+  "error_count": 1,
+  "errors": [
+    {
+      "code": "RATE_LIMIT_EXCEEDED",
+      "message": "Tier 2 quota exceeded for endpoint /v2/batch/sync",
+      "retry_after_sec": 30
+    }
+  ],
+  "pagination": {
+    "current_page": 1,
+    "total_pages": 45,
+    "total_records": 4500
+  },
+  "records": [
+    {
+      "id": "rec_001",
+      "customer_id": "cust_9921",
+      "amount_cents": 15400,
+      "currency": "USD",
+      "status": "settled",
+      "tags": ["enterprise", "q4_renewal", "priority"]
+    },
+    {
+      "id": "rec_002",
+      "customer_id": "cust_9922",
+      "amount_cents": 28900,
+      "currency": "EUR",
+      "status": "pending_capture",
+      "tags": ["retail", "online"]
+    },
+    {
+      "id": "rec_003",
+      "customer_id": "cust_9923",
+      "amount_cents": 4500,
+      "currency": "USD",
+      "status": "failed",
+      "tags": ["retry_queued"]
+    },
+    {
+      "id": "rec_004",
+      "customer_id": "cust_9924",
+      "amount_cents": 89000,
+      "currency": "USD",
+      "status": "settled",
+      "tags": ["annual"]
+    },
+    {
+      "id": "rec_005",
+      "customer_id": "cust_9925",
+      "amount_cents": 1200,
+      "currency": "GBP",
+      "status": "settled",
+      "tags": ["monthly"]
+    }
+  ]
+}

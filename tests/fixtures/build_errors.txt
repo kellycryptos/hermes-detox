@@ -1,0 +1,21 @@
+[1/12] Building C object CMakeFiles/core.dir/src/crypto.c.o
+[2/12] Building C object CMakeFiles/core.dir/src/network.c.o
+[3/12] Building C object CMakeFiles/core.dir/src/auth.c.o
+src/auth.c:45:12: error: expected ';' before 'return'
+   45 |     token = NULL
+      |            ^
+      |            ;
+   46 |     return token;
+src/auth.c:88:5: warning: implicit declaration of function 'verify_hmac_sha256' [-Wimplicit-function-declaration]
+   88 |     verify_hmac_sha256(payload, secret);
+      |     ^~~~~~~~~~~~~~~~~~
+[4/12] Building CXX object CMakeFiles/core.dir/src/engine.cpp.o
+src/engine.cpp:112:28: fatal error: openssl/evp.h: No such file or directory
+  112 | #include <openssl/evp.h>
+      |                            ^
+compilation terminated.
+[5/12] Linking CXX executable bin/gateway
+/usr/bin/ld: CMakeFiles/core.dir/src/network.c.o: undefined reference to 'SSL_CTX_new'
+/usr/bin/ld: CMakeFiles/core.dir/src/network.c.o: undefined reference to 'SSL_connect'
+collect2: error: ld returned 1 exit status
+ninja: build stopped: subcommand failed.

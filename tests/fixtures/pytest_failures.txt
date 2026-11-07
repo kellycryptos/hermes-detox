@@ -1,0 +1,34 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.1, pytest-8.3.4, pluggy-1.5.0
+rootdir: /workspace/project
+plugins: anyio-4.8.0, cov-5.0.0
+collected 24 items
+
+tests/test_auth.py ....                                                  [ 16%]
+tests/test_orders.py ....F..                                             [ 45%]
+tests/test_payments.py ...F.                                             [ 66%]
+tests/test_users.py ........                                             [100%]
+
+=================================== FAILURES ===================================
+___________________________ test_order_creation_total ___________________________
+
+    def test_order_creation_total():
+        order = create_order(items=[{"sku": "A1", "price": 10.0, "qty": 2}])
+>       assert order.total == 20.0
+E       AssertionError: assert 24.0 == 20.0
+E        +  where 24.0 = Order(subtotal=20.0, tax=4.0).total
+
+tests/test_orders.py:42: AssertionError
+___________________________ test_payment_charge_retry ___________________________
+
+    async def test_payment_charge_retry():
+        gateway = MockStripeGateway(fail_times=3)
+>       res = await process_payment(gateway, amount=5000)
+E       AssertionError: assert False is True
+E        +  where False = res.success
+
+tests/test_payments.py:88: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_orders.py::test_order_creation_total - AssertionError: assert 24.0 == 20.0
+FAILED tests/test_payments.py::test_payment_charge_retry - AssertionError: assert False is True
+======================== 2 failed, 22 passed in 1.48s =========================

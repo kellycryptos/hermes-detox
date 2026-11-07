@@ -22,6 +22,7 @@ if str(_PKG_ROOT) not in sys.path:
 from detox_tools.tool_inspect import SCHEMA as INSPECT_SCHEMA, handle_detox_inspect
 from detox_tools.tool_search import SCHEMA as SEARCH_SCHEMA, handle_detox_search
 from detox_tools.tool_status import SCHEMA as STATUS_SCHEMA, handle_detox_status
+from extractors import detect_and_extract_summary
 from report import build_compact_report
 from store import EvidenceStore
 
@@ -104,15 +105,19 @@ def on_transform_tool_result(
         if raw_len <= min_threshold:
             return None
 
-        # Determine content type hints
-        content_type = "text/plain"
-        if raw_output.startswith("{") or raw_output.startswith("["):
-            content_type = "application/json"
-        elif "terminal" in tool_name or "exec" in tool_name or "bash" in tool_name or "shell" in tool_name:
-            content_type = "text/x-terminal"
+        # Run content-aware extractor first
+        extractor_res = detect_and_extract_summary(
+            tool_name=tool_name,
+            raw_output=raw_output,
+            status=status or "success",
+            error_type=error_type,
+            error_message=error_message,
+            **kwargs,
+        )
+
+        content_type = extractor_res.get("content_type", "text/plain") if extractor_res else "text/plain"
 
         store = EvidenceStore.get_instance()
-
         head_count = int(cfg.get("head_lines", 5))
         tail_count = int(cfg.get("tail_lines", 5))
 
@@ -135,6 +140,7 @@ def on_transform_tool_result(
             error_message=error_message,
             head_lines_count=head_count,
             tail_lines_count=tail_count,
+            extractor_summary=extractor_res,
         )
 
         # Update transformed size in store
@@ -173,9 +179,19 @@ def on_transform_terminal_output(
         if not output or len(output) <= int(cfg.get("min_size", 2000)):
             return None
 
+        status = "success" if returncode == 0 else "error"
+        extractor_res = detect_and_extract_summary(
+            tool_name="terminal",
+            raw_output=output,
+            status=status,
+            returncode=returncode,
+            command=command,
+            **kwargs,
+        )
+
+        content_type = extractor_res.get("content_type", "text/x-terminal") if extractor_res else "text/x-terminal"
         store = EvidenceStore.get_instance()
         session_id = kwargs.get("session_id", "default")
-        status = "success" if returncode == 0 else "error"
 
         # Pre-save un-truncated terminal evidence
         ev_id = store.save(
@@ -183,7 +199,7 @@ def on_transform_terminal_output(
             tool_name="terminal",
             original_output=output,
             transformed_size=0,
-            content_type="text/x-terminal",
+            content_type=content_type,
             status=status,
         )
 
@@ -194,6 +210,7 @@ def on_transform_terminal_output(
             status=status,
             head_lines_count=int(cfg.get("head_lines", 5)),
             tail_lines_count=int(cfg.get("tail_lines", 5)),
+            extractor_summary=extractor_res,
         )
 
         try:
