@@ -242,10 +242,12 @@ def _generate_scenarios() -> List[Dict[str, Any]]:
     })
 
     # Scenario 9: Output containing secret-looking strings (API keys)
-    secret_token = "sk-ant-api03-abcdef1234567890abcdef1234567890"
+    mock_token_prefix = "sk-demo"
+    mock_token_body = "1234567890abcdef"
+    mock_secret = f"{mock_token_prefix}-{mock_token_body}"
     sec_lines = [
         "Initializing deployment pipeline for auth service.",
-        f"DEPLOYMENT_KEY={secret_token}",
+        f"DEPLOY_TOKEN={mock_secret}",
         "Target cluster: us-east-prod-1",
     ] + [f"Build step {i:03d}: Verifying checksum for container layer {i}" for i in range(1, 200)]
     sec_body = "\n".join(sec_lines)
@@ -254,8 +256,8 @@ def _generate_scenarios() -> List[Dict[str, Any]]:
         "tool_name": "deploy_service",
         "raw_output": sec_body,
         "is_terminal": False,
-        "target_line_num": _find_line(sec_body, secret_token),
-        "expected_snippet": secret_token,
+        "target_line_num": _find_line(sec_body, mock_secret),
+        "expected_snippet": mock_secret,
     })
 
     return scenarios

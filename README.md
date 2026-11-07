@@ -1,10 +1,10 @@
 # Hermes Detox
 
 > **Tool Output Firewall & Context Compressor for Hermes Agent**  
-> Intercepts noisy, oversized tool results before they flood LLM context, compresses them into structured diagnostic summaries, archives the raw originals in local SQLite storage, and provides loss-free line retrieval on demand.
+> Intercepts noisy, oversized tool results before they flood LLM context, compresses them into structured diagnostic summaries, archives the raw originals in local SQLite storage, and lets the agent retrieve exact lines on demand.
 
 [![Tests](https://img.shields.io/badge/tests-73%2F73%20passing-brightgreen)](#test-suite)
-[![Reduction](https://img.shields.io/badge/token%20reduction-88.2%25%20(est)-blue)](#benchmark-results)
+[![Benchmark Results](https://img.shields.io/badge/benchmark-results-blue)](#benchmark-results-character-counts-tokens-are-a-chars4-estimate)
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20external-success)](#zero-dependency-design)
 [![License](https://img.shields.io/badge/license-MIT-purple)](#license)
 
@@ -42,12 +42,12 @@ When the agent needs specific lines or context around a stack trace, it calls `d
 
 ---
 
-## Benchmark Results
+## Benchmark results (character counts; tokens are a chars/4 estimate)
 
 Evaluated across 9 realistic developer workloads via [benchmarks/run_benchmark.py](benchmarks/run_benchmark.py).  
-*Token counts are estimated using the standard approximation of `chars / 4`.*
+For terminal output, the baseline is what Hermes sends to the model after its 50,000-character cap. Token counts are estimated using the standard approximation of `chars / 4`.
 
-| Workload Scenario | Captured Size | Baseline Size (chars / tokens est) | Delivered Size (chars / tokens est) | Reduction (%) | Estimated Tokens Saved | Transform Latency | Inspect Latency | Storage Round-Trip |
+| Workload Scenario | Captured Size | Baseline Size (chars / tokens est) | Delivered Size (chars / tokens est) | Reduction (%) | Estimated Tokens Saved | Transform Latency | Inspect Latency | Stored text matches original |
 |---|---|---|---|---|---|---|---|---|
 | **Pytest Test Suite** (3 fails, 42 pass) | 15,317 | 15,317 / 3,829 | 2,869 / 717 | **81.3%** | **3,112** | 56.16 ms | 0.16 ms | **PASS (verbatim)** |
 | **C++ Build Log** (GCC/Clang, 4 files) | 9,902 | 9,902 / 2,475 | 1,894 / 473 | **80.9%** | **2,002** | 4.01 ms | 0.14 ms | **PASS (verbatim)** |
@@ -57,10 +57,13 @@ Evaluated across 9 realistic developer workloads via [benchmarks/run_benchmark.p
 | **Massive Terminal Log** (>50k cap) | 106,913 | 50,000 / 12,500 | 1,341 / 335 | **97.3%** | **12,165** | 41.74 ms | 0.18 ms | **PASS (verbatim)** |
 | **Short Output Below Threshold** (<6k) | 1,095 | 1,095 / 273 | 1,095 / 273 | **0.0%** | **0** | 0.01 ms | 0.00 ms | **N/A (passthrough)** |
 | **Low-Reducibility Payload** (0.55 gate) | 7,500 | 7,500 / 1,875 | 7,500 / 1,875 | **0.0%** | **0** | 2.77 ms | 0.00 ms | **N/A (gate bypass)** |
-| **Output with Secret Strings** (`sk-ant-`) | 11,775 | 11,775 / 2,943 | 1,055 / 263 | **91.0%** | **2,680** | 9.07 ms | 0.17 ms | **PASS (verbatim)** |
-| **TOTAL / OVERALL** | **233,028** | **176,115 / 44,025** | **20,823 / 5,202** | **88.2%** | **38,823** | **17.56 ms** | **0.16 ms** | **100% (7/7 PASS)** |
+| **Output with Secret Strings** (`sk-demo`) | 11,775 | 11,775 / 2,943 | 1,055 / 263 | **91.0%** | **2,680** | 9.07 ms | 0.17 ms | **PASS (verbatim)** |
+| **TOTAL / OVERALL** | **233,028** | **176,115 / 44,025** | **20,823 / 5,202** | **88.2%** | **38,823** | **17.56 ms** | **0.16 ms** | **7/7 verified matching** |
 
 *Note on Massive Terminal Output: Standard Hermes enforces a lossy inline cap of 50,000 characters before model delivery (discarding lines 40%–60%). Baseline is evaluated against this 50,000-character ceiling, while Detox captured the full 106,913 characters un-truncated in SQLite, allowing verbatim recovery of middle line 750.*
+
+> [!NOTE]
+> Detox has not been evaluated for effect on agent task success.
 
 ---
 
@@ -141,7 +144,7 @@ Settings are declared in `plugin.yaml` and configurable via Hermes Agent configu
 
 1. **Zero External Dependencies:** Built 100% on the Python standard library (`sqlite3`, `re`, `json`, `dataclasses`).
 2. **Concurrent Safety:** Uses SQLite in `WAL` (Write-Ahead Logging) mode with `NORMAL` synchrony and re-entrant connection pooling. Safe across multi-threaded agent runs.
-3. **Fail-Open Resilience:** If storage writes fail (disk full, permission error, corrupt database), Detox logs the error and returns `None`—letting Hermes deliver the original un-truncated output without crashing.
+3. **Fail-Open Resilience:** If storage writes fail (disk full, permission error, corrupt database), Detox returns nothing and Hermes handles the output exactly as it would without the plugin.
 4. **Self-Exclusion Guard:** Detox's own inspection tools (`detox_inspect`, `detox_search`, `detox_status`) are hard-coded to bypass interception, preventing recursion loops.
 5. **Media & Vision Protection:** Data URIs (`data:image/`, `data:video/`, `data:audio/`) and raw base64 streams bypass compression automatically.
 6. **Double-Wrap Guard:** Inspects output banners to ensure already-transformed reports are never compressed a second time.
@@ -152,7 +155,7 @@ Settings are declared in `plugin.yaml` and configurable via Hermes Agent configu
 
 ## Security, Privacy & Local Storage Disclosure
 
-- **Storage Location:** Evidence records are stored in a local SQLite database at:
+- **Storage Location:** Evidence records are stored in a local SQLite database at `<hermes home>/plugin-data/hermes-detox/detox.db`:
   - **Windows:** `%LOCALAPPDATA%\hermes\plugin-data\hermes-detox\detox.db`
   - **POSIX (Linux/macOS):** `~/.hermes/plugin-data/hermes-detox/detox.db`
 - **File Permissions:** Created with directory mode `0700` and file mode `0600` on POSIX systems. On Windows NTFS systems, access is restricted by standard Windows User Profile ACLs (accessible to the logged-in user and administrators).
