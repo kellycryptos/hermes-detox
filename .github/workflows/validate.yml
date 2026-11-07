@@ -14,29 +14,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.11"
+          enable-cache: true
+
+      - name: Set up Python
+        run: |
+          uv python install 3.14
 
       - name: Clone Hermes Agent (main)
         run: |
           git clone --depth 1 https://github.com/NousResearch/hermes-agent.git /tmp/hermes-agent
 
-      - name: Install Hermes Agent and Test Dependencies
+      - name: Install Hermes Agent and Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e /tmp/hermes-agent
-          pip install pytest
+          uv venv /tmp/hermes-venv --python 3.14
+          uv sync --directory /tmp/hermes-agent --python /tmp/hermes-venv
+          echo "/tmp/hermes-venv/bin" >> $GITHUB_PATH
 
       - name: Inspect Hermes CLI
         run: |
-          python -c "import hermes_cli; print('Hermes CLI location:', hermes_cli.__file__)"
-          hermes plugins --help || true
+          which hermes
+          hermes plugins --help
 
       - name: Run Plugin Test Suite
         run: |
-          pytest -v
+          python -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Run Hermes Plugin Validation
         run: |

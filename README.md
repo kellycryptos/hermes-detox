@@ -1,352 +1,267 @@
 # Hermes Detox
 
-**Tool Output Firewall for Hermes Agent**  
-*Intercepts large outputs before truncation, archives full raw text in local SQLite WAL, and provides compact reports with surgical line retrieval.*
+Your context window deserves protection.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
-[![Dependencies: 0 external](https://img.shields.io/badge/dependencies-0%20external-success.svg)](#security--privacy)
-[![Tests: 74/74 Passing](https://img.shields.io/badge/tests-74%2F74%20passing-brightgreen.svg)](#verification--test-suite)
-[![Context Reduction: 88.2%](https://img.shields.io/badge/context%20reduction-88.2%25-blue.svg)](#empirical-benchmark)
-[![Storage Fidelity: 100%](https://img.shields.io/badge/stored%20fidelity-100%25%20verified-brightgreen.svg)](#empirical-benchmark)
-[![Release: v0.1.0](https://img.shields.io/badge/release-v0.1.0-blue.svg)](https://github.com/kellycryptos/hermes-detox/releases/tag/v0.1.0)
-[![Hermes Agent](https://img.shields.io/badge/hermes--agent-%3E%3D0.19.0-blueviolet.svg)](#compatibility)
-[![Demo Video](https://img.shields.io/badge/demo%20video-watch%20on%20X-black.svg?logo=x)](https://x.com/Kellycryptos/status/2119068376085458987)
+[![Dependencies](https://img.shields.io/badge/dependencies-0%20external-success.svg)](#security-and-privacy)
+[![Hermes](https://img.shields.io/badge/hermes--agent-%3E%3D0.19.0-blueviolet.svg)](#compatibility)
+[![Tests](https://img.shields.io/badge/tests-74-blue.svg)](#development)
+[![Context Reduction](https://img.shields.io/badge/context%20reduction-88.3%25-blue.svg)](#benchmark)
+
+Hermes Detox is a plugin for [Hermes Agent](https://hermes-agent.nousresearch.com/) that stops huge tool outputs from flooding the model's context. When a tool returns a large result, Detox saves the full original on your machine, hands the model a short report with an evidence ID, and lets the model pull back exact lines or search the original whenever it needs them.
+
+The model reads less. Nothing is thrown away.
+
+Built for the Hermes Agent Plugin Hackathon.
 
 > 📺 **Watch the Walkthrough Demo Video on X:** [x.com/Kellycryptos/status/2119068376085458987](https://x.com/Kellycryptos/status/2119068376085458987)
 
 ---
 
-## 90-Second Judge & Evaluator Quickstart
+## Why this matters
 
-Evaluate Hermes Detox in under 90 seconds in any sterile environment:
+Agents spend most of their working life reading tool output: test runs, build logs, directory listings, API responses. A single failing test suite can put thousands of tokens of passing lines in front of the model, and every one of them costs money, pushes useful history out of the window, and gives the model more noise to dig through.
 
-```bash
-# 1. Clone repository
-git clone https://github.com/kellycryptos/hermes-detox.git
-cd hermes-detox
+Hermes already limits terminal output, and that limit has a cost of its own. In Hermes 0.19.0, terminal output over 50,000 characters is cut down to the first 40% and the last 60%, and the middle is dropped. The root cause of a failure often sits in that middle. The model never sees it, and no tool can bring it back.
 
-# 2. Run the 74-test verification suite (executes in ~2.2s with 0 dependencies)
-uv run python -m unittest discover -s tests -p "test_*.py" -v
-
-# 3. Run the empirical 9-workload benchmark (evaluates 100% signal preservation & latencies)
-uv run python benchmarks/run_benchmark.py
-
-# 4. Run the Amputation Test (demonstrates why generic head/tail compressors fail)
-uv run python scripts/demo_amputation_test.py
-```
-
-### The 10-Second Live Demonstration: The "Amputation Test"
-
-In vanilla Hermes Agent and commodity compressors, outputs over 50,000 characters are capped to head 40% and tail 60%—**permanently destroying the middle lines where root cause errors live**.
-
-Run the interactive Amputation Test:
-
-```bash
-uv run python scripts/demo_amputation_test.py
-```
-
-```
-================================================================================
-HERMES DETOX -- THE AMPUTATION TEST (Zero-Loss vs Lossy Compression)
-================================================================================
-Simulating a realistic 1,500-line test log (73,535 characters)
-with a critical failure buried in the middle at Line 750...
-
-[1] COMMODITY COMPRESSOR (Head/Tail Slicing)
-• Delivered:       50,041 characters
-• Root Cause:      [X] AMPUTATED (Permanently destroyed in middle)
-• Agent Impact:    Model hallucinates or fails the task because Line 750 was erased.
-
-[2] HERMES DETOX (Zero-Loss Diagnostic Firewall)
-• Delivered:       1,492 characters (98.0% noise eliminated)
-• Processing Time: 141.23 ms
-• Root Cause:      [OK] PRESERVED (100% Critical Signal Retention)
-• Evidence ID:     ev_9cd2cba85963 (Local SQLite WAL)
-
-[3] SURGICAL ON-DEMAND RETRIEVAL (`detox_inspect`)
-• Retrieval Time:  0.39 ms
-• Retrieved Context:
-  Line 0748: [DEBUG] worker-thread 4 heartbeat ack
-  Line 0749: [DEBUG] worker-thread 5 heartbeat ack
-  Line 0750: [ERROR] CRITICAL_EXCEPTION: Database pool exhausted at host 10.0.0.5:5432
-  Line 0751: [DEBUG] worker-thread 7 heartbeat ack
-  Line 0752: [DEBUG] worker-thread 0 heartbeat ack
-================================================================================
-VERDICT: Detox eliminates 98.0% of context noise without blinding the model.
-================================================================================
-```
+Detox changes the trade. It captures the full output before that cut happens, keeps it locally, and gives the model a compact view built from the lines that matter: errors, failures, tracebacks, counts, and file locations. If the compact view is not enough, the model asks for more and gets the exact original text.
 
 ---
 
-## Sponsor Track & Evidence Matrix ("The Receipt Box")
-
-Hermes Detox was engineered specifically for the **Hermes Agent Plugin Hackathon** (Nous Research). It deeply leverages the Hermes Agent Plugin SDK without monkey-patching or third-party dependencies:
-
-| Hermes SDK Capability | Implementation File & Line Permalink | Functional Purpose in Hermes Detox |
-|---|---|---|
-| **`transform_terminal_output`** | [`__init__.py#L171-L257`](__init__.py) | Intercepts raw terminal stdout/stderr **before** Hermes's lossy 50,000-character middle truncation runs. |
-| **`transform_tool_result`** | [`__init__.py#L44-L169`](__init__.py) | Intercepts all tool results before insertion into LLM conversation context; replaces noisy output with compact diagnostic reports. |
-| **`on_session_reset`** | [`__init__.py#L279-L290`](__init__.py) | Observer hook to purge session evidence and execute throttled SQLite maintenance. |
-| **`detox_inspect` Tool** | [`detox_tools/tool_inspect.py#L1-L60`](detox_tools/tool_inspect.py) | Custom agent tool allowing the LLM to pull exact 1-based line slices (`start_line`, `end_line`) in 0.16 ms. |
-| **`detox_search` Tool** | [`detox_tools/tool_search.py#L1-L75`](detox_tools/tool_search.py) | Custom agent tool allowing the LLM to search archived outputs for regex or exact text patterns. |
-| **`detox_status` Tool** | [`detox_tools/tool_status.py#L1-L50`](detox_tools/tool_status.py) | Custom agent tool providing session-level firewall statistics and character savings metrics. |
-| **`/detox` Slash Command** | [`__init__.py#L291-L373`](__init__.py) | Interactive user command line interface supporting `/detox status`, `/detox inspect`, `/detox search`, and `/detox purge`. |
-| **SQLite WAL Storage** | [`store.py#L32-L140`](store.py) | Re-entrant, multi-threaded storage using `PRAGMA journal_mode = WAL` under `<hermes_home>/plugin-data/hermes-detox/`. |
-| **Declarative Manifest** | [`plugin.yaml#L1-L68`](plugin.yaml) | Declares tools, hooks, configuration schema, and SemVer compatibility (`requires_hermes: ">=0.19.0"`). |
-| **Walkthrough Demo Video** | [x.com/Kellycryptos/...](https://x.com/Kellycryptos/status/2119068376085458987) | 60-second live demonstration: Amputation Test, 0.16 ms line retrieval, and 74-test verification. |
-
----
-
-## Why This Matters
-
-Agents spend over 70% of their operational tokens reading raw tool output: failing test suites, compilation warnings, massive JSON payloads, and directory listings.
-
-1. **Context Window Exhaustion:** A single un-truncated test failure or build log can dump 10,000–30,000 tokens into history, blowing past reasoning limits, degrading model attention, and forcing premature context compaction.
-2. **The Hermes "Middle-Truncation" Trap:** In Hermes Agent 0.19.0+, terminal outputs exceeding 50,000 characters are capped to 40% head and 60% tail. The middle chunk is erased forever. If the assertion failure or stack trace sits in that middle block, the model is blind and cannot recover it.
-3. **Token Noise Degradation:** Models perform worse when wading through thousands of passing test lines to find one missing bracket.
-
-**Hermes Detox flips the equation: The model receives high-density diagnostic summaries. The complete original is preserved locally. Nothing is thrown away.**
-
----
-
-## How It Works
+## How it works
 
 ```
-                        [Tool Output Generated]
-                  (Terminal, Pytest, Compiler, API)
-                                  │
-                                  ▼
-                     [Detox Firewall Hook]
-           (transform_terminal_output / transform_tool_result)
-                                  │
-           ┌──────────────────────┴──────────────────────┐
-           │                                             │
-      [Skip Path]                                   [Active Path]
-  • Output <= 6,000 chars                       • Output > 6,000 chars
-  • Excluded tool (patch, vision)               • Not media/base64
-  • Detox self-tools (inspect, search)          • Valid payload
-  • Media/data URI payload                               │
-           │                                             ▼
-           │                             1. Archive raw text in SQLite WAL
-           │                             2. Run content-aware extractor
-           │                             3. Build compact diagnostic report
-           │                             4. Evaluate 0.55 compression gate
-           │                                             │
-           │                                    Passed   │   Failed (>55% size)
-           │                                    Gate     │   (e.g. single giant line)
-           │                                     │       └──> Fail-open untouched
-           ▼                                     ▼
-    [Pass Through]                     [Compact Report Delivered]
-(Delivered to model untouched)        (Header + Summary + Errors + ID)
-                                                 │
-                                                 ▼
-                                        [Agent Retrieval Loop]
-                                      Agent calls detox_inspect()
-                                      for exact lines in 0.16 ms
+Tool runs (terminal, tests, compiler, file search, API call)
+  |
+  v
+Detox hook (transform_terminal_output / transform_tool_result)
+  |
+  |-- Skipped: under the size threshold, an excluded tool,
+  |   Detox's own tools, media or base64 data, background
+  |   process notifications
+  |
+  |-- Large output:
+  |   1. Save the full original to local SQLite
+  |   2. Pick an extractor for the output type
+  |   3. Build a compact report with an evidence ID
+  |   4. Use the report only if it is small enough
+  |
+  v
+Model receives the compact report
+  |
+  v
+Model calls detox_inspect or detox_search for exact lines
 ```
 
-### The Compression Gate Guarantee
+A report is only used when it comes out at most 55% of the original size. If an output can't be compacted well, the model gets the original untouched.
 
-Detox enforces a hard safety gate (`max_ratio = 0.55`):
-- A compact report is **only** delivered if its size is at most **55%** of the original output.
-- If an output cannot be cleanly compressed (such as high-entropy binary text or unstructured single-line blobs), Detox **fails open** and delivers the original output untouched.
-- If the SQLite database locks, disk fills up, or an unexpected exception occurs, Detox catches the error, logs a debug notice, and returns `None`—ensuring Hermes continues execution without crashing.
+Any error inside Detox, such as a full disk, a locked database, or a failing extractor, makes the hook return nothing. Hermes then handles the output exactly as it would without the plugin.
 
 ---
 
-## Empirical Benchmark
+## What the model sees
 
-Tested across 9 realistic developer workloads using [`benchmarks/run_benchmark.py`](benchmarks/run_benchmark.py).
-
-*Baselines represent what Hermes delivers to the model without Detox. For terminal outputs over 50,000 characters, baseline is capped at the 50,000 characters Hermes normally provides. Token counts are estimated using the industry standard of $\text{chars} / 4$.*
-
-| Workload Scenario | Captured Chars | Baseline Chars / Tokens | Delivered Chars / Tokens | Reduction | Critical Signals Preserved | Est. Tokens Saved | Transform Latency | Storage Round-Trip |
-|---|---|---|---|---|---|---|---|---|
-| **Pytest Test Suite** (3 fails, 42 pass) | 15,317 | 15,317 / 3,829 | 2,869 / 717 | **81.3%** | **6/6 (100%)** | **3,112** | 38.49 ms | **100% PASS (verbatim)** |
-| **C++ Build Log** (GCC/Clang, 4 files) | 9,902 | 9,902 / 2,475 | 1,894 / 473 | **80.9%** | **6/6 (100%)** | **2,002** | 16.16 ms | **100% PASS (verbatim)** |
-| **JSON API Payload** (50 nested records) | 29,923 | 29,923 / 7,480 | 1,973 / 493 | **93.4%** | **3/3 (100%)** | **6,987** | 23.83 ms | **100% PASS (verbatim)** |
-| **Filesystem Listing** (580 files, tree) | 15,155 | 15,155 / 3,788 | 910 / 227 | **94.0%** | **4/4 (100%)** | **3,561** | 16.56 ms | **100% PASS (verbatim)** |
-| **Server Trace Log** (420 lines) | 35,448 | 35,448 / 8,862 | 1,822 / 455 | **94.9%** | **4/4 (100%)** | **8,407** | 36.56 ms | **100% PASS (verbatim)** |
-| **Massive Terminal Log** (>50k cap) | 106,913 | 50,000 / 12,500 | 1,487 / 371 | **97.0%** | **2/2 (100%)** | **12,129** | 131.26 ms | **100% PASS (verbatim)** |
-| **Short Output Below Threshold** (<6k) | 1,095 | 1,095 / 273 | 1,095 / 273 | **0.0%** | **1/1 (100%)** | **0** | 0.01 ms | **Passthrough (untouched)** |
-| **Low-Reducibility Payload** (0.55 gate) | 7,500 | 7,500 / 1,875 | 7,500 / 1,875 | **0.0%** | **1/1 (100%)** | **0** | 6.77 ms | **Passthrough (gate bypass)** |
-| **Output with Secret Strings** (`sk-demo`) | 11,752 | 11,752 / 2,943 | 1,032 / 258 | **91.2%** | **1/1 (100%)** | **2,680** | 17.68 ms | **100% PASS (verbatim)** |
-| **TOTAL / OVERALL** | **233,005** | **176,092 / 44,023** | **20,800 / 5,200** | **88.2%** | **28/28 (100.0%)** | **38,823** | **31.92 ms** | **100% Byte Fidelity** |
+A compact report contains the tool name, the original size, an evidence ID, the first and last few lines, every error and warning line with its original line number, a summary built by a content-aware extractor, and a note on how to retrieve the rest. Line numbers in the report match the stored original, so a number the model reads can be passed straight to `detox_inspect`.
 
 ---
 
-## Content-Aware Extractors
+## Install
 
-Detox features 6 specialized extractors with automatic heuristic dispatch:
-
-| Extractor | Source File | Preservation Strategy & Capabilities |
-|---|---|---|
-| **Test Suites** | [`extractors/extract_tests.py`](extractors/extract_tests.py) | Parses Pytest, Unittest, Jest, Cargo test. Preserves pass/fail/skip tallies, failed test names, assertion messages, and failing file:line references. |
-| **Compiler & Build Logs** | [`extractors/extract_build.py`](extractors/extract_build.py) | Parses GCC, Clang, Rustc, tsc. Captures compilation diagnostics with exact file/line, template error chains, and linker undefined references. |
-| **Filesystem & Directory Trees** | [`extractors/extract_files.py`](extractors/extract_files.py) | Handles `find`, `ls -laR`, and `tree` outputs (including Unicode box drawings `├──`, `└──`). Pinpoints key configuration files (`package.json`, `tsconfig.json`, `.env.example`, `Cargo.toml`, `Dockerfile`) and folder distributions. |
-| **JSON API Payloads** | [`extractors/extract_json.py`](extractors/extract_json.py) | Extracts schema skeleton, record count, top keys, and error payloads while keeping numeric IDs and key fields exact. |
-| **Terminal & Shell Output** | [`extractors/extract_terminal.py`](extractors/extract_terminal.py) | Automatically handles commands matching `terminal`, `bash`, `shell`, `exec`, `cmd`, `run`, and `log`. Captures exit codes, stack traces, and unhandled exceptions. |
-| **Plain Text Fallback** | [`extractors/extract_text.py`](extractors/extract_text.py) | Preserves Markdown headings and GitHub-style alert blocks (`[!NOTE]`, `[!WARNING]`, `[!CRITICAL]`). |
-
----
-
-## What the Model Sees
-
-Instead of 30,000 characters of noise, the LLM receives a clean, structured diagnostic report with exact 1-based line numbers:
-
-```
-[DETOX FIREWALL: Output intercepted and compressed]
-Tool: terminal (`pytest tests/`) | Original: 15,317 chars (382 lines) | Report: 2,869 chars | Reduction: 81.3%
-Evidence ID: ev_4f1b8a92e10c | Type: text/x-pytest
-
---- Extracted Summary ---
-Test Suite: 42 passed, 3 failed, 0 skipped
-Failing Tests:
-  • tests/test_auth.py::test_jwt_expiration (line 142)
-  • tests/test_billing.py::test_invoice_calc (line 218)
-  • tests/test_api.py::test_rate_limit_exceeded (line 305)
-
---- Errors & Warnings ---
-[Line 142] AssertionError: Expected token expiry 3600 but got 0
-[Line 218] KeyError: 'tax_rate'
-[Line 305] HTTPError: 429 Too Many Requests
-
---- Head Preview (Lines 1-5) ---
-1 | ============================= test session starts ==============================
-2 | platform linux -- Python 3.13.1, pytest-8.3.2, pluggy-1.5.0
-3 | rootdir: /home/user/workspace
-4 | collected 45 items
-5 | 
-
---- Tail Preview (Lines 378-382) ---
-378 | =========================== short test summary info ============================
-379 | FAILED tests/test_auth.py::test_jwt_expiration - AssertionError: Expected...
-380 | FAILED tests/test_billing.py::test_invoice_calc - KeyError: 'tax_rate'
-381 | FAILED tests/test_api.py::test_rate_limit_exceeded - HTTPError: 429...
-382 | ========================= 3 failed, 42 passed in 1.42s =========================
-
-To inspect exact lines around failures, call:
-detox_inspect(evidence_id="ev_4f1b8a92e10c", start_line=135, end_line=150)
-```
-
-Line numbers match the stored original byte-for-byte. The agent can immediately call `detox_inspect` with the provided evidence ID.
-
----
-
-## Agent Tools & Interactive Retrieval
-
-Hermes Detox exposes three tools to the agent:
-
-### 1. `detox_inspect`
-Retrieves exact 1-based line ranges from stored outputs in **0.16 ms**:
-
-```json
-{
-  "evidence_id": "ev_4f1b8a92e10c",
-  "start_line": 138,
-  "end_line": 146
-}
-```
-
-### 2. `detox_search`
-Searches archived outputs for regex or exact string matches:
-
-```json
-{
-  "query": "KeyError: 'tax_rate'",
-  "evidence_id": "ev_4f1b8a92e10c",
-  "max_results": 5
-}
-```
-
-### 3. `detox_status`
-Reports current session firewall statistics and token savings.
-
-*Note: Detox self-tools are automatically excluded from firewall interception, ensuring long inspect results reach the model intact.*
-
----
-
-## User Slash Commands
-
-Users can inspect and monitor the firewall directly from the Hermes chat prompt:
-
-| Command | Action |
-|---|---|
-| `/detox status` | Shows total outputs intercepted, characters in/out, savings %, database size, and record count. |
-| `/detox inspect <id> [start] [end]` | Displays formatted, numbered lines directly in the terminal interface. |
-| `/detox search <phrase> [id]` | Searches stored evidence for specific strings or error codes. |
-| `/detox purge [days]` | Runs maintenance cleanup or purges evidence older than $N$ days. |
-
----
-
-## Installation & Configuration
-
-### Install
-
-Install via the Hermes Agent plugin manager:
 ```bash
 hermes plugins install kellycryptos/hermes-detox
 hermes plugins enable hermes-detox
 ```
 
-Or clone into your local Hermes plugins folder:
+Or clone it by hand:
+
 ```bash
 git clone https://github.com/kellycryptos/hermes-detox.git ~/.hermes/plugins/hermes-detox
 hermes plugins enable hermes-detox
 ```
 
-Verify loading in your next Hermes session with `/detox status`.
-
-### Configuration (`plugin.yaml`)
-
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `enabled` | `bool` | `true` | Master switch for Detox firewall interception. |
-| `min_size` | `int` | `6000` | Minimum character threshold before compression triggers. |
-| `max_report_chars` | `int` | `3000` | Maximum character budget allocated for compact reports. |
-| `max_ratio` | `float` | `0.55` | Compression safety gate (report / original). Fails open if above. |
-| `head_lines` | `int` | `5` | Leading lines previewed in report. |
-| `tail_lines` | `int` | `5` | Trailing lines previewed in report. |
-| `excluded_tools` | `list` | `[browser_vision, patch, write_file, ...]` | Tools exempted from interception (vision, media, file writes). |
-| `retention_days` | `int` | `30` | Retention window for archived evidence. |
-| `max_store_size_mb` | `int` | `100` | Maximum SQLite database size before LRU eviction. |
-| `debug` | `bool` | `false` | Enable verbose diagnostic logging. |
+Start a new Hermes session and run `/detox status` to confirm it loaded.
 
 ---
 
-## Security & Privacy
+## Usage
 
-- **Zero External Dependencies:** Built entirely with the Python standard library (`sqlite3`, `re`, `json`, `dataclasses`). No vulnerable supply chain vectors.
-- **Strictly Local Storage:** No telemetry, no cloud relays, no outbound network requests. All evidence stays on your host machine:
-  - **Linux/macOS:** `~/.hermes/plugin-data/hermes-detox/detox.db` (created with `0700` directory and `0600` file permissions).
-  - **Windows:** `%LOCALAPPDATA%\hermes\plugin-data\hermes-detox\detox.db` (protected by user profile ACLs).
-- **Secret Redaction Compliance:** Raw outputs are stored locally verbatim to preserve accurate stack traces. When the agent retrieves lines via `detox_inspect`, Hermes's standard outbound secret redaction pipeline (`security.redact_secrets`) applies before tokens are dispatched to the LLM.
-- **Fail-Open Resilience:** Storage write failures, database locks, or parser errors never block tool execution or crash Hermes.
+Detox works on its own. Run noisy commands as usual and the model receives compact reports.
+
+### Slash commands
+
+| Command | What it does |
+|---|---|
+| `/detox status` | Shows outputs intercepted, characters in and out, characters saved, record count, and database size |
+| `/detox inspect <evidence_id> [start] [end]` | Prints exact lines from stored evidence |
+| `/detox search <phrase> [evidence_id]` | Searches stored outputs for a phrase |
+| `/detox purge [days]` | Runs retention cleanup, or removes evidence older than the given number of days |
+
+### Tools the model can call
+
+- **`detox_inspect`** returns exact lines from a stored output:
+  ```json
+  { "evidence_id": "ev_4f1b8a92e10c", "start_line": 40, "end_line": 55 }
+  ```
+
+- **`detox_search`** finds matching lines with their original line numbers:
+  ```json
+  { "query": "NullPointerException", "evidence_id": "ev_4f1b8a92e10c", "max_results": 10 }
+  ```
+
+- **`detox_status`** reports firewall statistics for the session.
+
+Detox never compacts the results of its own three tools, so a long `detox_inspect` result always reaches the model in full.
 
 ---
 
-## Verification & Test Suite
+## Supported output types
 
-Hermes Detox includes a comprehensive test suite of 74 unit, integration, and safety tests:
+Each extractor falls back to a generic report when it can't process an output with confidence.
 
-```bash
-uv run python -m unittest discover -s tests -p "test_*.py" -v
-```
+| Type | What is preserved |
+|---|---|
+| Test runs (pytest, unittest, jest, cargo test, go test) | Passed, failed, and skipped counts, failing test names, assertion messages, relevant traces |
+| Build logs (gcc, clang, rustc, TypeScript) | Diagnostics with file and line, dependency and linker errors |
+| Terminal output | Exit code, tracebacks, error lines, final status |
+| JSON | Structure, key fields, identifiers, counts, and error fields, with numbers kept exact |
+| File listings (find, ls -laR, tree) | Totals, distribution by directory, notable files |
+| Plain text | Headings and alert blocks |
 
-- **`tests/test_core.py` (17 tests):** Threshold bounding, fail-open paths, self-exclusion, un-truncated 50k+ terminal recovery, parallel terminal concurrency, and double-wrap prevention.
-- **`tests/test_extractors.py` (45 tests):** Pytest, GCC/Clang, JSON, filesystem trees, server logs, and 6 ground-truth line-fidelity verification tests.
-- **`tests/test_safety.py` (12 tests):** 10-thread SQLite WAL stress testing, age-based retention, disk size cap pruning, post-compaction session rotation, media payload bypass, and database corruption recovery.
+---
+
+## Configuration
+
+Settings are declared in `plugin.yaml` and read through Hermes's plugin configuration.
+
+| Key | Default | Description |
+|---|---|---|
+| `enabled` | `true` | Master switch |
+| `min_size` | `6000` | Outputs below this many characters are left alone |
+| `max_report_chars` | `3000` | Character budget for a compact report |
+| `max_ratio` | `0.55` | A report must be at most this fraction of the original, or the original is kept |
+| `head_lines` | `5` | Leading lines shown in a report |
+| `tail_lines` | `5` | Trailing lines shown in a report |
+| `excluded_tools` | see below | Tools Detox never touches |
+| `retention_days` | `30` | Evidence older than this is pruned |
+| `max_store_size_mb` | `100` | Oldest evidence is removed when the database passes this size |
+| `debug` | `false` | Verbose logging |
+
+**Default exclusions:** `browser_vision`, `browser_snapshot`, `image_generate`, `video_generate`, `video_analyze`, `vision_analyze`, `text_to_speech`, `patch`, and `write_file`. Tools you add to `excluded_tools` are added to this list and don't replace it.
+
+Retention cleanup runs at most once every six hours, at session reset or through `/detox purge`. It never runs while a tool result is being processed.
+
+---
+
+## Reliability
+
+- **Fail open on every path.** Storage errors, extractor errors, and database corruption all return the original output.
+- **No double wrapping.** A result that already carries a Detox report is never compacted again.
+- **Background process notifications** from Hermes are ignored.
+- **Images, audio, video, and base64 data** are left untouched.
+- **Evidence IDs are paired with the output** inside the same hook call, so parallel terminal commands can't swap IDs.
+- **The SQLite database runs in WAL mode** with a busy timeout and was tested with ten concurrent writers.
+- **Reports are checked against the stored original.** A test confirms no line in a report is missing from the original or carries a wrong line number, and that every error line is either in the report or retrievable by line number.
+
+---
+
+## Security and privacy
+
+- **Everything stays local.** Detox makes no network requests, sends no telemetry, and has no dependencies beyond the Python standard library.
+- **Evidence is stored in `<hermes home>/plugin-data/hermes-detox/detox.db`.** On Windows this is `%LOCALAPPDATA%\hermes\plugin-data\hermes-detox\detox.db`. On Linux and macOS it is `~/.hermes/plugin-data/hermes-detox/detox.db`.
+- **The database is not encrypted.** On Linux and macOS the directory and file are created with mode `0700` and `0600`. On Windows access follows your user profile permissions, which means your account and administrators can read it.
+- **Detox stores raw output,** so anything a tool prints can end up in the database, including credentials that show up in logs or environment dumps. Hermes redacts secrets in outbound messages when `security.redact_secrets` is on, so a stored secret may be masked before the model sees it. With that setting off, it is not.
+- **Anyone using the same Hermes profile who knows an evidence ID can read that evidence,** even from another session. IDs are random, but treat them as sensitive.
+- Use `/detox purge` to remove evidence at any time, or lower `retention_days`.
+
+---
+
+## Benchmark
+
+Run it yourself with `python benchmarks/run_benchmark.py`.
+
+These figures come from synthetic fixtures built to resemble common developer output. They are character counts, and token numbers are estimates at four characters per token. For terminal output over the cap, the baseline is the 50,000 characters Hermes delivers to the model, not the full captured size.
+
+| Scenario | Baseline chars | Delivered chars | Reduction | Est. tokens saved |
+|---|---|---|---|---|
+| Pytest run (3 failures, 42 passes) | 15,317 | 2,869 | 81.3% | 3,112 |
+| C++ build log (4 files) | 9,902 | 1,894 | 80.9% | 2,002 |
+| JSON API payload (50 records) | 29,923 | 1,973 | 93.4% | 6,987 |
+| Directory listing (580 files) | 15,155 | 910 | 94.0% | 3,561 |
+| Server trace log (420 lines) | 35,448 | 1,822 | 94.9% | 8,407 |
+| Massive terminal log (106,913 captured, baseline capped at 50,000) | 50,000 | 1,487 | 97.0% | 12,129 |
+| Output with secret-like strings | 11,752 | 1,032 | 91.2% | 2,680 |
+| Short output below threshold | 1,095 | 1,095 | 0.0% | 0 |
+| Output the 0.55 gate rejects | 7,500 | 7,500 | 0.0% | 0 |
+| **Total** | **176,092** | **20,582** | **88.3%** | **38,878** |
+
+On the author's machine, transforming an output took tens of milliseconds and retrieving lines took under a millisecond. Run the benchmark to see figures for your hardware.
+
+**What these numbers show:** On large, noisy outputs the delivered size drops by more than 80%, small outputs pass through untouched, and the stored copy matches the original text. For the 106,913 character log, the baseline model view has already lost its middle section. Detox keeps that section retrievable.
+
+**What they don't show:** Whether agents finish tasks better with Detox. That has not been measured, and no claim about task success is made here.
 
 ---
 
 ## Compatibility
 
 - Requires **Hermes Agent $\ge 0.19.0$**.
-- Fully compatible with Python 3.10, 3.11, 3.12, and 3.13.
-- Tested and verified on Windows, macOS, and Linux.
+- Developed against Hermes Agent 0.19.0 and checked against the plugin validator on the current main branch.
+- Registers three tools (`detox_inspect`, `detox_search`, `detox_status`), three hooks (`transform_tool_result`, `transform_terminal_output`, `on_session_reset`), and one slash command (`/detox`).
+- If another plugin returns a string from `transform_tool_result` first, Hermes uses that string and Detox's result for that call is skipped.
+
+---
+
+## Known limitations
+
+1. **Session IDs change when Hermes compacts a conversation.** `detox_inspect` and `detox_search` with an explicit evidence ID keep working across that change, because the ID itself is the authorization. A search without an ID covers only the current session, so evidence saved before a compaction is found by ID, not by unscoped search.
+2. **Reports are built by pattern-based extractors.** They don't understand meaning, so an unusual log format may fall back to the generic report.
+3. **Benchmarks use synthetic fixtures,** and token counts are estimates.
+4. **Effect on agent task success has not been evaluated.**
+5. **The evidence store is unencrypted,** as described under [Security and privacy](#security-and-privacy).
+
+---
+
+## Development
+
+Run tests and benchmarks:
+
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
+python benchmarks/run_benchmark.py
+hermes plugins validate . --install-deps
+hermes plugins doctor . --ci
+```
+
+The test suite contains **74 tests** (73 passed, 1 skipped in the latest run).
+
+The last two commands need a Hermes version that includes them. Use a current source install of Hermes Agent.
+
+- `__init__.py`: Plugin registration, hooks, tools, slash command
+- `config.py`: Typed settings with safe defaults
+- `report.py`: Compact report builder
+- `store.py`: SQLite evidence store
+- `retention.py`: Age and size based cleanup
+- `extractors/`: Content-aware extractors
+- `detox_tools/`: `detox_inspect`, `detox_search`, `detox_status`
+- `tests/`: Core, extractor, and safety tests
+- `benchmarks/`: Benchmark runner
+- `docs/`: Build reports for each stage
+- `docs/demo/`: Live interactive demo, slides, and workflow script
+- `plugin-catalog/`: Catalog entry for the Hermes plugin catalog
+
+---
+
+## Hackathon entry
+
+Hermes Detox was built for the **Hermes Agent Plugin Hackathon**. It changes how Hermes handles tool output, using hooks, tools, and persistent local state.
+
+- **Usefulness:** It protects context on the outputs that waste the most of it, and it recovers detail Hermes would otherwise drop.
+- **Reliability:** It fails open, skips what it shouldn't touch, and is covered by automated tests for every fallback path.
+- **Polish:** Zero dependencies, one-command install, configurable from `plugin.yaml`, and honest documentation of limits and risks.
+- **Creativity:** Compaction and retrieval work together. The model reads a short report and keeps full access to the original.
 
 ---
 
 ## License
 
-MIT © [kellycryptos](https://github.com/kellycryptos). See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

@@ -1,13 +1,13 @@
 @echo off
 title Hermes Agent - Live Demonstration
 color 0F
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo ================================================================================
 echo Hermes Agent - Live Workflow Session (Hermes Detox Active)
 echo ================================================================================
 echo.
-uv run python scripts\demo_workflow.py
+uv run python docs\demo\demo_workflow.py
 
 echo.
 echo ================================================================================
