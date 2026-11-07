@@ -1,6 +1,6 @@
 name: hermes-detox
 repo: https://github.com/kellycryptos/hermes-detox
-sha: 983ea4d7ec355735217ace37e3478cdcf1368626
+sha: 00a31192d33ae13374bb033e750b40f816fbd53f
 version: "0.1.0"
 description: "Tool output firewall for Hermes Agent. Compresses noisy tool results, saves full originals locally, and enables exact line retrieval."
 maintainer: kellycryptos
