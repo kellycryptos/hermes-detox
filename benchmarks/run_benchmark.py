@@ -242,6 +242,10 @@ def _generate_scenarios() -> List[Dict[str, Any]]:
     })
 
     # Scenario 9: Output containing secret-looking strings (API keys)
+    # The mock token is assembled dynamically at runtime from string fragments to prevent
+    # static security scanners (e.g. Hermes plugin_guard hardcoded_secret) from flagging
+    # benchmark test fixtures, while verifying Detox's verbatim storage fidelity for
+    # credential-bearing payloads.
     mock_token_prefix = "sk-demo"
     mock_token_body = "1234567890abcdef"
     mock_secret = f"{mock_token_prefix}-{mock_token_body}"

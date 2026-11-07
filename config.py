@@ -42,6 +42,13 @@ class DetoxConfig:
     max_store_size_mb: int = 100
     debug: bool = False
 
+    def __post_init__(self) -> None:
+        """Ensure user-configured excluded_tools extends the 9 default tools rather than replacing them."""
+        combined = set(DEFAULT_EXCLUDED_TOOLS)
+        if self.excluded_tools:
+            combined.update(self.excluded_tools)
+        self.excluded_tools = sorted(list(combined))
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary."""
         return dataclasses.asdict(self)
@@ -90,9 +97,11 @@ class DetoxConfig:
                 return [item.strip() for item in val.split(",") if item.strip()]
             return None
 
-        excluded = _to_list_of_str(data.get("excluded_tools"))
-        if excluded is None:
-            excluded = list(DEFAULT_EXCLUDED_TOOLS)
+        user_excluded = _to_list_of_str(data.get("excluded_tools"))
+        combined_excluded = set(DEFAULT_EXCLUDED_TOOLS)
+        if user_excluded:
+            combined_excluded.update(user_excluded)
+        excluded = sorted(list(combined_excluded))
 
         return cls(
             enabled=_to_bool(data.get("enabled"), True),

@@ -9,7 +9,7 @@
       "baseline_tokens_est": 3829,
       "delivered_tokens_est": 717,
       "tokens_saved_est": 3112,
-      "transform_ms": 16.81,
+      "transform_ms": 15.84,
       "inspect_ms": 0.14,
       "storage_roundtrip": "PASS (verbatim)"
     },
@@ -22,8 +22,8 @@
       "baseline_tokens_est": 2475,
       "delivered_tokens_est": 473,
       "tokens_saved_est": 2002,
-      "transform_ms": 3.98,
-      "inspect_ms": 0.09,
+      "transform_ms": 4.32,
+      "inspect_ms": 0.14,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -35,7 +35,7 @@
       "baseline_tokens_est": 7480,
       "delivered_tokens_est": 493,
       "tokens_saved_est": 6987,
-      "transform_ms": 5.76,
+      "transform_ms": 6.6,
       "inspect_ms": 0.17,
       "storage_roundtrip": "PASS (verbatim)"
     },
@@ -48,8 +48,8 @@
       "baseline_tokens_est": 3788,
       "delivered_tokens_est": 167,
       "tokens_saved_est": 3621,
-      "transform_ms": 8.77,
-      "inspect_ms": 0.16,
+      "transform_ms": 8.78,
+      "inspect_ms": 0.22,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -61,8 +61,8 @@
       "baseline_tokens_est": 8862,
       "delivered_tokens_est": 606,
       "tokens_saved_est": 8256,
-      "transform_ms": 26.28,
-      "inspect_ms": 0.12,
+      "transform_ms": 37.09,
+      "inspect_ms": 0.14,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -74,8 +74,8 @@
       "baseline_tokens_est": 12500,
       "delivered_tokens_est": 335,
       "tokens_saved_est": 12165,
-      "transform_ms": 41.15,
-      "inspect_ms": 0.25,
+      "transform_ms": 44.72,
+      "inspect_ms": 0.29,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -100,7 +100,7 @@
       "baseline_tokens_est": 1875,
       "delivered_tokens_est": 1875,
       "tokens_saved_est": 0,
-      "transform_ms": 2.77,
+      "transform_ms": 4.19,
       "inspect_ms": 0.0,
       "storage_roundtrip": "N/A (passthrough untouched)"
     },
@@ -113,8 +113,8 @@
       "baseline_tokens_est": 2938,
       "delivered_tokens_est": 258,
       "tokens_saved_est": 2680,
-      "transform_ms": 8.67,
-      "inspect_ms": 0.09,
+      "transform_ms": 11.35,
+      "inspect_ms": 0.08,
       "storage_roundtrip": "PASS (verbatim)"
     }
   ],
@@ -124,8 +124,8 @@
     "total_delivered_chars": 20800,
     "overall_reduction_pct": 88.2,
     "total_tokens_saved_est": 38823,
-    "avg_transform_ms": 12.69,
-    "avg_inspect_ms": 0.15,
+    "avg_transform_ms": 14.77,
+    "avg_inspect_ms": 0.17,
     "storage_roundtrip_rate": "100%"
   }
 }
