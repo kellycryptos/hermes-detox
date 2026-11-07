@@ -380,3 +380,28 @@ class EvidenceStore:
             "characters_saved": chars_saved,
             "saved_percentage": round(saved_pct, 1),
         }
+
+    def purge_session(self, session_id: str) -> int:
+        """Purge all stored evidence records for a given session ID."""
+        if not session_id:
+            return 0
+        conn = self._get_conn()
+        with conn:
+            cursor = conn.execute("DELETE FROM evidence WHERE session_id = ?", (session_id,))
+            deleted = cursor.rowcount
+        logger.info("Purged %d evidence records for session '%s'", deleted, session_id)
+        return deleted
+
+    def relink_session(self, old_session_id: str, new_session_id: str) -> int:
+        """Relink evidence records from old_session_id to new_session_id (e.g. after compaction)."""
+        if not old_session_id or not new_session_id:
+            return 0
+        conn = self._get_conn()
+        with conn:
+            cursor = conn.execute(
+                "UPDATE evidence SET session_id = ? WHERE session_id = ?",
+                (new_session_id, old_session_id),
+            )
+            updated = cursor.rowcount
+        logger.info("Relinked %d evidence records from '%s' to '%s'", updated, old_session_id, new_session_id)
+        return updated

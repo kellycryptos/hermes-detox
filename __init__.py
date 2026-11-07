@@ -143,6 +143,16 @@ def on_transform_tool_result(
             extractor_summary=extractor_res,
         )
 
+        # Check compression ratio: only replace if report achieves significant reduction (at most ~half original size)
+        max_ratio = float(cfg.get("max_ratio", 0.55))
+        if len(compact_report) > raw_len * max_ratio:
+            logger.debug(
+                "Detox compact report (%d chars) did not achieve reduction threshold vs original (%d chars); keeping original",
+                len(compact_report),
+                raw_len,
+            )
+            return None
+
         # Update transformed size in store
         try:
             conn = store._get_conn()
@@ -213,6 +223,16 @@ def on_transform_terminal_output(
             extractor_summary=extractor_res,
         )
 
+        # Check compression ratio: only replace if report achieves significant reduction (at most ~half original size)
+        max_ratio = float(cfg.get("max_ratio", 0.55))
+        if len(report) > len(output) * max_ratio:
+            logger.debug(
+                "Terminal report (%d chars) did not achieve reduction threshold vs original (%d chars); keeping original",
+                len(report),
+                len(output),
+            )
+            return None
+
         try:
             conn = store._get_conn()
             with conn:
@@ -227,6 +247,36 @@ def on_transform_terminal_output(
     except Exception as exc:
         logger.error("Detox transform_terminal_output failed open: %s", exc)
         return None
+
+
+def on_post_compaction(old_session_id: str = "", new_session_id: str = "", **kwargs: Any) -> None:
+    """Relink stored evidence records when a session is compacted or migrated."""
+    try:
+        if old_session_id and new_session_id:
+            store = EvidenceStore.get_instance()
+            store.relink_session(old_session_id, new_session_id)
+    except Exception as exc:
+        logger.debug("on_post_compaction error: %s", exc)
+
+
+def on_session_delete(session_id: str = "", **kwargs: Any) -> None:
+    """Purge stored evidence records when a session is deleted."""
+    try:
+        if session_id:
+            store = EvidenceStore.get_instance()
+            store.purge_session(session_id)
+    except Exception as exc:
+        logger.debug("on_session_delete error: %s", exc)
+
+
+def on_session_reset(session_id: str = "", **kwargs: Any) -> None:
+    """Observer hook: purge stored evidence records when session is reset."""
+    try:
+        if session_id:
+            store = EvidenceStore.get_instance()
+            store.purge_session(session_id)
+    except Exception as exc:
+        logger.debug("on_session_reset error: %s", exc)
 
 
 def handle_detox_slash_command(args: str) -> str:

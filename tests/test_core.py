@@ -245,6 +245,59 @@ class TestDetoxCore(unittest.TestCase):
         search_text = handle_detox_slash_command(f"search two {ev_id}")
         self.assertIn("line two", search_text)
 
+    def test_detox_tools_excluded_from_interception(self):
+        """Self-exclusion: detox_inspect, detox_search, and detox_status must return None even for huge outputs."""
+        huge_output = "Line of inspect payload\n" * 500  # > 10,000 chars
+        self.assertGreater(len(huge_output), 10000)
+
+        for detox_tool in ("detox_inspect", "detox_search", "detox_status"):
+            res = on_transform_tool_result(
+                tool_name=detox_tool,
+                result=huge_output,
+                session_id="self_exclude_test",
+            )
+            self.assertIsNone(
+                res,
+                f"Detox tool '{detox_tool}' must be hardcoded excluded from interception to prevent recursion loops",
+            )
+
+    def test_compression_ratio_gate(self):
+        """Report is only used if it achieves significant reduction (at most ~50% original size)."""
+        # Create output barely exceeding min_size (2,050 chars) where report would not save ~50%
+        output_2050 = "A" * 2050
+        res = on_transform_tool_result(
+            tool_name="generic_tool",
+            result=output_2050,
+            session_id="ratio_test",
+        )
+        # Because a generic compact report with header, retrieval instructions, etc.
+        # will exceed 55% of 2,050 chars, it should safely return None (fail open / keep original)
+        if res is not None:
+            self.assertLessEqual(len(res), len(output_2050) * 0.55)
+
+    def test_session_purge_and_relink(self):
+        """Test evidence session linking after compaction and purging on reset/delete."""
+        store = EvidenceStore.get_instance()
+        ev_id = store.save(
+            session_id="sess_old",
+            tool_name="tool_purge",
+            original_output="content to be purged or linked\n" * 100,
+            transformed_size=50,
+        )
+
+        # 1. Relink session
+        updated = store.relink_session("sess_old", "sess_new")
+        self.assertEqual(updated, 1)
+        record = store.get(ev_id, session_id="sess_new")
+        self.assertIsNotNone(record)
+        self.assertEqual(record["session_id"], "sess_new")
+
+        # 2. Purge session
+        deleted = store.purge_session("sess_new")
+        self.assertEqual(deleted, 1)
+        record_after = store.get(ev_id, session_id="sess_new")
+        self.assertIsNone(record_after)
+
 
 if __name__ == "__main__":
     unittest.main()

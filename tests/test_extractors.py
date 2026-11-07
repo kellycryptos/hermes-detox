@@ -339,6 +339,106 @@ class TestReportWithExtractorSummary(unittest.TestCase):
         self.assertIn("evid-test-003", output)
 
 
+class TestExtractorGroundTruthFidelity(unittest.TestCase):
+    """Rigorous verification:
+    1. Every line displayed with a line number (N | <text>) matches the exact line in original at index N.
+    2. Every error line in original output either appears in the compact report or is retrievable by line number.
+    Catches fabricated or shifted line numbers across all extractors.
+    """
+
+    def setUp(self):
+        from store import EvidenceStore, set_storage_dir_override
+        import tempfile
+        self.temp_dir = tempfile.TemporaryDirectory()
+        set_storage_dir_override(pathlib.Path(self.temp_dir.name))
+        EvidenceStore.reset_instance()
+        self.store = EvidenceStore.get_instance()
+
+    def tearDown(self):
+        from store import EvidenceStore, set_storage_dir_override
+        EvidenceStore.reset_instance()
+        set_storage_dir_override(None)
+        self.temp_dir.cleanup()
+
+    def _verify_fidelity(self, tool_name: str, raw_output: str, status: str = "success"):
+        import re
+        from report import build_compact_report, _ERROR_PATTERNS
+        from extractors import detect_and_extract_summary
+
+        orig_lines = raw_output.splitlines()
+        ev_id = self.store.save("fid_sess", tool_name, raw_output, 0)
+
+        extractor_summary = detect_and_extract_summary(
+            tool_name=tool_name,
+            raw_output=raw_output,
+            status=status,
+        )
+
+        report = build_compact_report(
+            tool_name=tool_name,
+            original_output=raw_output,
+            evidence_id=ev_id,
+            status=status,
+            extractor_summary=extractor_summary,
+        )
+
+        # 1. Assert no line printed with "N | text" is shifted or fabricated
+        preview_pattern = re.compile(r"^\s*(\d+)(?:\s+\[(?:ERROR|WARN)\])?\s*\|\s*(.*)$", re.MULTILINE)
+        matches = preview_pattern.findall(report)
+        self.assertGreater(len(matches), 0, f"Report for {tool_name} must contain preview lines")
+
+        for line_str, content in matches:
+            line_no = int(line_str)
+            self.assertGreaterEqual(line_no, 1, f"Line number {line_no} must be >= 1")
+            self.assertLessEqual(line_no, len(orig_lines), f"Line {line_no} out of bounds (total {len(orig_lines)})")
+            expected_content = orig_lines[line_no - 1]
+            self.assertEqual(
+                content.strip(),
+                expected_content.strip(),
+                f"Line number {line_no} has shifted content!\nGot:      {content}\nExpected: {expected_content}",
+            )
+
+        # 2. Assert every error line in original is in the report OR retrievable by exact line number
+        for idx, line in enumerate(orig_lines, start=1):
+            if _ERROR_PATTERNS.search(line):
+                in_report = line.strip() in report
+                retrieval = self.store.get_lines(ev_id, start_line=idx, end_line=idx, session_id="fid_sess")
+                self.assertTrue(retrieval["success"], f"Line {idx} failed retrieval")
+                self.assertEqual(retrieval["lines"][0].strip(), line.strip())
+                self.assertTrue(
+                    in_report or retrieval["success"],
+                    f"Error on line {idx} was neither in report nor retrievable!",
+                )
+
+    def test_fidelity_pytest_extractor(self):
+        raw = _load_fixture("pytest_failures.txt")
+        self._verify_fidelity("run_pytest", raw, status="error")
+
+    def test_fidelity_build_extractor(self):
+        raw = _load_fixture("build_errors.txt")
+        self._verify_fidelity("run_build", raw, status="error")
+
+    def test_fidelity_terminal_extractor(self):
+        raw = _load_fixture("terminal_failure.txt")
+        self._verify_fidelity("terminal", raw, status="error")
+
+    def test_fidelity_file_listing_extractor(self):
+        raw = _load_fixture("directory_tree.txt")
+        self._verify_fidelity("list_files", raw, status="success")
+
+    def test_fidelity_json_extractor(self):
+        raw = _load_fixture("large_data.json")
+        self._verify_fidelity("api_fetch", raw, status="error")
+
+    def test_fidelity_plain_text_extractor(self):
+        # 100 lines of plain log with scattered errors
+        lines = [f"Log trace item {i}: worker thread active" for i in range(1, 101)]
+        lines[14] = "Log trace item 15: ERROR - connection pool exhausted"
+        lines[72] = "Log trace item 73: WARNING - slow query detected: 4500ms"
+        raw = "\n".join(lines)
+        self._verify_fidelity("application_log", raw, status="success")
+
+
 # ---------------------------------------------------------------------------
 # Stage 1 regression guard
 # ---------------------------------------------------------------------------
