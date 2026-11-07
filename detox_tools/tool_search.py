@@ -60,10 +60,14 @@ def handle_detox_search(args: Dict[str, Any], session_id: Optional[str] = None, 
 
         effective_session_id = session_id or kwargs.get("session_id")
         store = EvidenceStore.get_instance()
+        # When an explicit evidence_id is provided, search targets that specific record.
+        # When evidence_id is omitted, search is strictly scoped to the active session
+        # to prevent cross-session leakage.
+        search_session_id = None if evidence_id else effective_session_id
         result = store.search_lines(
             query=query,
             evidence_id=evidence_id,
-            session_id=effective_session_id,
+            session_id=search_session_id,
             case_sensitive=case_sensitive,
             limit=limit,
         )

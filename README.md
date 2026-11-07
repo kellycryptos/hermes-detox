@@ -3,7 +3,7 @@
 > **Tool Output Firewall & Context Compressor for Hermes Agent**  
 > Intercepts noisy, oversized tool results before they flood LLM context, compresses them into structured diagnostic summaries, archives the raw originals in local SQLite storage, and lets the agent retrieve exact lines on demand.
 
-[![Tests](https://img.shields.io/badge/tests-73%2F73%20passing-brightgreen)](#test-suite)
+[![Tests](https://img.shields.io/badge/tests-74%2F74%20passing-brightgreen)](#test-suite)
 [![Benchmark Results](https://img.shields.io/badge/benchmark-results-blue)](#benchmark-results-character-counts-tokens-are-a-chars4-estimate)
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20external-success)](#zero-dependency-design)
 [![License](https://img.shields.io/badge/license-MIT-purple)](#license)
@@ -58,12 +58,12 @@ For terminal output, the baseline is what Hermes sends to the model after its 50
 | **Short Output Below Threshold** (<6k) | 1,095 | 1,095 / 273 | 1,095 / 273 | **0.0%** | **0** | 0.01 ms | 0.00 ms | **N/A (passthrough)** |
 | **Low-Reducibility Payload** (0.55 gate) | 7,500 | 7,500 / 1,875 | 7,500 / 1,875 | **0.0%** | **0** | 2.77 ms | 0.00 ms | **N/A (gate bypass)** |
 | **Output with Secret Strings** (`sk-demo`) | 11,775 | 11,775 / 2,943 | 1,055 / 263 | **91.0%** | **2,680** | 9.07 ms | 0.17 ms | **PASS (verbatim)** |
-| **TOTAL / OVERALL** | **233,028** | **176,115 / 44,025** | **20,823 / 5,202** | **88.2%** | **38,823** | **17.56 ms** | **0.16 ms** | **7/7 verified matching** |
+| **TOTAL / OVERALL** | **233,005** | **176,092 / 44,023** | **20,800 / 5,200** | **88.2%** | **38,823** | **14.77 ms** | **0.17 ms** | **7/7 verified matching** |
 
 *Note on Massive Terminal Output: Standard Hermes enforces a lossy inline cap of 50,000 characters before model delivery (discarding lines 40%–60%). Baseline is evaluated against this 50,000-character ceiling, while Detox captured the full 106,913 characters un-truncated in SQLite, allowing verbatim recovery of middle line 750.*
 
 > [!NOTE]
-> Detox has not been evaluated for effect on agent task success.
+> Reduction and token savings represent performance on these workloads (synthetic test fixtures, not real sessions). Detox has not been evaluated for effect on agent task success.
 
 ---
 
@@ -161,12 +161,13 @@ Settings are declared in `plugin.yaml` and configurable via Hermes Agent configu
 - **File Permissions:** Created with directory mode `0700` and file mode `0600` on POSIX systems. On Windows NTFS systems, access is restricted by standard Windows User Profile ACLs (accessible to the logged-in user and administrators).
 - **Unencrypted at Rest:** Stored tool outputs are **not** encrypted on disk. If tool outputs contain secrets, environment dumps, or private tokens, they reside unencrypted in `detox.db`.
 - **Outbound Redaction:** While Detox stores raw outputs verbatim for accurate debugging, secrets returned by `detox_inspect` may be masked before the model sees them depending on Hermes's `security.redact_secrets` setting (which runs `agent.redact.redact_sensitive_text` on outbound messages).
+- **ID-Based Evidence Access:** Quoting an explicit, cryptographically random evidence ID (e.g. `ev_4f1b8a92e10c`) acts as direct capability authorization. `detox_inspect` resolves records by explicit ID across sessions stored within the same profile database, allowing the model to inspect lines after session ID rotation or context compaction. In multi-user environments sharing a single Hermes profile, knowledge of an evidence ID permits inspection across session boundaries within that local database. Meanwhile, `detox_search` without an explicit ID remains strictly scoped to the active session.
 
 ---
 
 ## Known Limitations
 
-1. **Compaction Session Rotation:** In order to maintain compatibility with Hermes 0.19.0, `post_compaction` is not registered in `provides_hooks`. If Hermes rotates session IDs during context compaction, evidence records stored prior to compaction become inaccessible to session-scoped `detox_inspect` calls unless relinked via `store.relink_session()` or accessed via global `/detox` slash commands.
+1. **Compaction & Session Search Scoping:** Quoting an explicit evidence ID in `detox_inspect` or `detox_search` works across compaction session rotations, allowing the model to inspect pre-compaction outputs using IDs stored in its summary context. However, unscoped searches via `detox_search` (without an evidence ID) remain strictly scoped to the active session ID, meaning older pre-compaction records will not appear in broad query results unless relinked via `store.relink_session()` or searched by specific evidence ID.
 2. **Deterministic Storage Round-Trip vs. Agent Performance:** The benchmark verifies 100% byte-for-byte fidelity of line storage and retrieval ("Storage Round-Trip"). It does not evaluate model task success rates or agent reasoning accuracy, which depend on model capabilities and task context.
 3. **Single-Line Unstructured Payloads:** Massive single-line payloads without line breaks are caught by the 0.55 compression ratio gate and delivered untouched, as line-based extraction cannot safely reduce them.
 
@@ -174,14 +175,14 @@ Settings are declared in `plugin.yaml` and configurable via Hermes Agent configu
 
 ## Verification & Test Suite
 
-The test suite covers 73 automated tests with 100% pass rate:
+The test suite covers 74 automated tests with 100% pass rate:
 ```bash
 uv run --with hermes-agent python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
 - **`tests/test_core.py`** (17 tests): Interception threshold, fail-open paths, self-exclusion, 50k+ untruncated recovery, parallel terminal safety, double-wrap guards.
 - **`tests/test_extractors.py`** (45 tests): JSON, pytest, compiler logs, file listings, terminal output, and 6 ground-truth line-fidelity tests.
-- **`tests/test_safety.py`** (11 tests): 10-thread WAL concurrency, age-based retention, disk size cap pruning, throttled cleanup, post-compaction session rotation, media bypass, default exclusions, secret redaction, and database corruption recovery.
+- **`tests/test_safety.py`** (12 tests): 10-thread WAL concurrency, age-based retention, disk size cap pruning, throttled cleanup, post-compaction session rotation and ID authorization, media bypass, default tool extensions, secret redaction, and database corruption recovery.
 
 ---
 

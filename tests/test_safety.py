@@ -20,6 +20,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from config import DEFAULT_EXCLUDED_TOOLS, DetoxConfig, get_config, set_config
 from detox_tools.tool_inspect import handle_detox_inspect
+from detox_tools.tool_search import handle_detox_search
 from detox_tools.tool_status import handle_detox_status
 from retention import maybe_run_retention_prune, run_retention_prune
 from store import EvidenceStore, set_storage_dir_override
@@ -167,8 +168,11 @@ class TestDetoxSafetyAndRetention(unittest.TestCase):
         self.assertIsNone(res2, "Subsequent prune within throttle window must return None")
 
     def test_post_compaction_session_rotation(self):
-        """Without post_compaction registered, session ID rotation leaves earlier evidence unreachable
-        to scoped inspect/search until relink_session is called. This documents the known limitation."""
+        """Verify cross-session evidence inspection and search scoping after compaction rotates session ID.
+        1. detox_inspect with explicit evidence_id works across session rotation (authorizing access by ID).
+        2. detox_search without an evidence_id remains strictly session-scoped to prevent cross-session leakage.
+        3. detox_search with an explicit evidence_id searches the targeted pre-compaction record.
+        4. relinking session brings pre-compaction records into the new session's unscoped search pool."""
         store = EvidenceStore.get_instance()
         lines = [f"Pre-compaction log line {i}" for i in range(250)]
         lines[50] = "CRITICAL_PRE_COMPACTION_MARKER"
@@ -189,17 +193,26 @@ class TestDetoxSafetyAndRetention(unittest.TestCase):
         self.assertIn("CRITICAL_PRE_COMPACTION_MARKER", res_pre["content"])
 
         # 2. Compaction occurs and rotates session to sess_post_compact
-        # Because post_compaction is not registered (Hermes 0.19.0 compatibility),
-        # evidence under old session is unreachable to scoped queries
+        # Model retains evidence_id in summary context: detox_inspect with explicit evidence_id SUCCEEDS
         res_post = json.loads(handle_detox_inspect({"evidence_id": ev_id, "start_line": 51, "end_line": 51}, session_id="sess_post_compact"))
-        self.assertFalse(res_post["success"], "Evidence must be unreachable under new session ID without relink")
-        self.assertIn("Evidence not found", res_post["error"])
+        self.assertTrue(res_post["success"], "Model must be able to inspect pre-compaction evidence by explicit ID after session rotation")
+        self.assertIn("CRITICAL_PRE_COMPACTION_MARKER", res_post["content"])
 
-        # 3. If relink_session is called (e.g. manually or upon migration), evidence becomes accessible again
+        # 3. detox_search WITHOUT evidence_id remains strictly session-scoped (returns 0 matches)
+        res_search_unscoped = json.loads(handle_detox_search({"query": "CRITICAL_PRE_COMPACTION_MARKER"}, session_id="sess_post_compact"))
+        self.assertTrue(res_search_unscoped["success"])
+        self.assertEqual(len(res_search_unscoped["results"]), 0, "Unscoped search in new session must not leak pre-compaction evidence")
+
+        # 4. detox_search WITH explicit evidence_id succeeds across rotation
+        res_search_scoped = json.loads(handle_detox_search({"query": "CRITICAL_PRE_COMPACTION_MARKER", "evidence_id": ev_id}, session_id="sess_post_compact"))
+        self.assertTrue(res_search_scoped["success"])
+        self.assertEqual(len(res_search_scoped["results"]), 1, "Search with explicit evidence_id must search targeted pre-compaction record")
+
+        # 5. After store.relink_session is called, pre-compaction evidence joins the new session search pool
         store.relink_session("sess_pre_compact", "sess_post_compact")
-        res_relinked = json.loads(handle_detox_inspect({"evidence_id": ev_id, "start_line": 51, "end_line": 51}, session_id="sess_post_compact"))
-        self.assertTrue(res_relinked["success"], "Evidence is reachable once session is relinked")
-        self.assertIn("CRITICAL_PRE_COMPACTION_MARKER", res_relinked["content"])
+        res_search_relinked = json.loads(handle_detox_search({"query": "CRITICAL_PRE_COMPACTION_MARKER"}, session_id="sess_post_compact"))
+        self.assertTrue(res_search_relinked["success"])
+        self.assertEqual(len(res_search_relinked["results"]), 1, "Relinked session brings evidence into new session search pool")
 
     def test_media_and_base64_payloads_left_untouched(self):
         """Tool outputs containing base64 images or media URIs must bypass Detox to protect vision."""

@@ -60,14 +60,16 @@ def handle_detox_inspect(args: Dict[str, Any], session_id: Optional[str] = None,
         max_chars_raw = args.get("max_chars")
         max_chars = int(max_chars_raw) if max_chars_raw is not None else None
 
-        effective_session_id = session_id or kwargs.get("session_id")
+        # Explicit, unguessable evidence ID acts as direct capability authorization,
+        # allowing exact line inspection across sessions in the same profile (e.g. after
+        # context compaction rotates the session ID).
         store = EvidenceStore.get_instance()
         result = store.get_lines(
             evidence_id=evidence_id,
             start_line=start_line,
             end_line=end_line,
             max_chars=max_chars,
-            session_id=effective_session_id,
+            session_id=None,
         )
         return json.dumps(result, ensure_ascii=False)
     except Exception as exc:
