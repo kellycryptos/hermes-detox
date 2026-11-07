@@ -11,7 +11,7 @@ uv run python docs\demo\demo_workflow.py
 
 echo.
 echo ================================================================================
-echo Press any key to run the test suite verification (74 tests)...
+echo Press any key to run the test suite verification (75 tests)...
 echo ================================================================================
 pause >nul
 echo.
