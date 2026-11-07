@@ -80,6 +80,14 @@ def on_transform_tool_result(
 
         raw_output = result if isinstance(result, str) else str(result)
 
+        # Do not compress media / image payloads (data URIs or base64 streams)
+        if "data:image/" in raw_output[:500] or "data:video/" in raw_output[:500] or "data:audio/" in raw_output[:500]:
+            logger.debug("Skipping media payload (data URI)")
+            return None
+        if ";base64," in raw_output[:500] or "base64," in raw_output[:100]:
+            logger.debug("Skipping base64 media payload")
+            return None
+
         # Do not re-intercept an output that has already been transformed (e.g. by terminal hook)
         # Check both raw text and JSON-wrapped output shapes (e.g. {"output": "=== [DETOX FIREWALL: ..."})
         if "=== [DETOX FIREWALL:" in raw_output[:300]:
@@ -180,6 +188,12 @@ def on_transform_terminal_output(
             return None
 
         if not output or len(output) <= cfg.min_size:
+            return None
+
+        # Do not compress media / image payloads (data URIs or base64 streams)
+        if "data:image/" in output[:500] or "data:video/" in output[:500] or "data:audio/" in output[:500]:
+            return None
+        if ";base64," in output[:500] or "base64," in output[:100]:
             return None
 
         status = "success" if returncode == 0 else "error"

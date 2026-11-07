@@ -39,7 +39,14 @@ def extract_build_summary(raw_output: str) -> Optional[Dict[str, Any]]:
     dependency_issues: List[Tuple[int, str]] = []
 
     for idx, line in enumerate(lines, start=1):
-        m = _COMPILER_DIAGNOSTIC_RE.search(line)
+        # Quick substring pre-filter: compiler diagnostics always contain ':' or '('
+        if ":" not in line and "(" not in line:
+            if _DEPENDENCY_ERROR_RE.search(line[:300]):
+                dependency_issues.append((idx, line.strip()))
+            continue
+
+        target_line = line[:500] if len(line) > 500 else line
+        m = _COMPILER_DIAGNOSTIC_RE.search(target_line)
         if m:
             d = m.groupdict()
             file_loc = f"{d['file']}:{d['line']}"
@@ -47,7 +54,7 @@ def extract_build_summary(raw_output: str) -> Optional[Dict[str, Any]]:
             diagnostics.append((idx, d["severity"].upper(), file_loc, msg))
             continue
 
-        ts_m = _TS_DIAGNOSTIC_RE.search(line)
+        ts_m = _TS_DIAGNOSTIC_RE.search(target_line)
         if ts_m:
             d = ts_m.groupdict()
             file_loc = f"{d['file']}:{d['line']}"
@@ -55,7 +62,7 @@ def extract_build_summary(raw_output: str) -> Optional[Dict[str, Any]]:
             diagnostics.append((idx, d["severity"].upper(), file_loc, msg))
             continue
 
-        if _DEPENDENCY_ERROR_RE.search(line):
+        if _DEPENDENCY_ERROR_RE.search(target_line):
             dependency_issues.append((idx, line.strip()))
 
     if not diagnostics and not dependency_issues:

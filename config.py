@@ -14,6 +14,19 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("hermes_detox.config")
 
 
+DEFAULT_EXCLUDED_TOOLS = [
+    "browser_vision",
+    "browser_snapshot",
+    "image_generate",
+    "video_generate",
+    "video_analyze",
+    "vision_analyze",
+    "text_to_speech",
+    "patch",
+    "write_file",
+]
+
+
 @dataclass
 class DetoxConfig:
     """Strongly typed Detox firewall configuration."""
@@ -24,7 +37,7 @@ class DetoxConfig:
     max_ratio: float = 0.55
     head_lines: int = 5
     tail_lines: int = 5
-    excluded_tools: List[str] = field(default_factory=list)
+    excluded_tools: List[str] = field(default_factory=lambda: list(DEFAULT_EXCLUDED_TOOLS))
     retention_days: int = 30
     max_store_size_mb: int = 100
     debug: bool = False
@@ -68,12 +81,18 @@ class DetoxConfig:
             except (ValueError, TypeError):
                 return default
 
-        def _to_list_of_str(val: Any) -> List[str]:
+        def _to_list_of_str(val: Any) -> Optional[List[str]]:
+            if val is None:
+                return None
             if isinstance(val, list):
                 return [str(item).strip() for item in val if item is not None and str(item).strip()]
             if isinstance(val, str):
                 return [item.strip() for item in val.split(",") if item.strip()]
-            return []
+            return None
+
+        excluded = _to_list_of_str(data.get("excluded_tools"))
+        if excluded is None:
+            excluded = list(DEFAULT_EXCLUDED_TOOLS)
 
         return cls(
             enabled=_to_bool(data.get("enabled"), True),
@@ -82,7 +101,7 @@ class DetoxConfig:
             max_ratio=_to_float(data.get("max_ratio"), 0.55, min_val=0.1, max_val=1.0),
             head_lines=_to_int(data.get("head_lines"), 5, min_val=1),
             tail_lines=_to_int(data.get("tail_lines"), 5, min_val=1),
-            excluded_tools=_to_list_of_str(data.get("excluded_tools")),
+            excluded_tools=excluded,
             retention_days=_to_int(data.get("retention_days"), 30, min_val=1),
             max_store_size_mb=_to_int(data.get("max_store_size_mb"), 100, min_val=5),
             debug=_to_bool(data.get("debug"), False),

@@ -1,0 +1,47 @@
+name: Validate Plugin
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Clone Hermes Agent (main)
+        run: |
+          git clone --depth 1 https://github.com/NousResearch/hermes-agent.git /tmp/hermes-agent
+
+      - name: Install Hermes Agent and Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e /tmp/hermes-agent
+          pip install pytest
+
+      - name: Inspect Hermes CLI
+        run: |
+          python -c "import hermes_cli; print('Hermes CLI location:', hermes_cli.__file__)"
+          hermes plugins --help || true
+
+      - name: Run Plugin Test Suite
+        run: |
+          pytest -v
+
+      - name: Run Hermes Plugin Validation
+        run: |
+          hermes plugins validate . --install-deps
+
+      - name: Run Hermes Plugin Doctor
+        run: |
+          hermes plugins doctor . --ci

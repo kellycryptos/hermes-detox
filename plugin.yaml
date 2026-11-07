@@ -43,8 +43,17 @@ config_schema:
     type: array
     items:
       type: string
-    default: []
-    description: "List of tool names exempted from Detox firewall interception"
+    default:
+      - browser_vision
+      - browser_snapshot
+      - image_generate
+      - video_generate
+      - video_analyze
+      - vision_analyze
+      - text_to_speech
+      - patch
+      - write_file
+    description: "List of tool names exempted from Detox firewall interception (defaults to vision, media, and file editing tools)"
   retention_days:
     type: integer
     default: 30

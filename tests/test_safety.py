@@ -26,6 +26,7 @@ from store import EvidenceStore, set_storage_dir_override
 import __init__ as detox_mod
 
 on_transform_tool_result = detox_mod.on_transform_tool_result
+on_transform_terminal_output = detox_mod.on_transform_terminal_output
 on_session_reset = detox_mod.on_session_reset
 handle_detox_slash_command = detox_mod.handle_detox_slash_command
 
@@ -165,11 +166,95 @@ class TestDetoxSafetyAndRetention(unittest.TestCase):
         res2 = maybe_run_retention_prune(store=store, config=cfg, min_interval_secs=3600)
         self.assertIsNone(res2, "Subsequent prune within throttle window must return None")
 
+    def test_post_compaction_session_rotation(self):
+        """Without post_compaction registered, session ID rotation leaves earlier evidence unreachable
+        to scoped inspect/search until relink_session is called. This documents the known limitation."""
+        store = EvidenceStore.get_instance()
+        lines = [f"Pre-compaction log line {i}" for i in range(250)]
+        lines[50] = "CRITICAL_PRE_COMPACTION_MARKER"
+        raw_output = "\n".join(lines)
+
+        report = on_transform_tool_result(
+            tool_name="pre_compact_build",
+            result=raw_output,
+            session_id="sess_pre_compact",
+        )
+        self.assertIsNotNone(report)
+        import re
+        ev_id = re.search(r"evidence: `(ev_[a-f0-9]+)`", report).group(1)
+
+        # 1. Scoped inspect in pre-compaction session succeeds
+        res_pre = json.loads(handle_detox_inspect({"evidence_id": ev_id, "start_line": 51, "end_line": 51}, session_id="sess_pre_compact"))
+        self.assertTrue(res_pre["success"])
+        self.assertIn("CRITICAL_PRE_COMPACTION_MARKER", res_pre["content"])
+
+        # 2. Compaction occurs and rotates session to sess_post_compact
+        # Because post_compaction is not registered (Hermes 0.19.0 compatibility),
+        # evidence under old session is unreachable to scoped queries
+        res_post = json.loads(handle_detox_inspect({"evidence_id": ev_id, "start_line": 51, "end_line": 51}, session_id="sess_post_compact"))
+        self.assertFalse(res_post["success"], "Evidence must be unreachable under new session ID without relink")
+        self.assertIn("Evidence not found", res_post["error"])
+
+        # 3. If relink_session is called (e.g. manually or upon migration), evidence becomes accessible again
+        store.relink_session("sess_pre_compact", "sess_post_compact")
+        res_relinked = json.loads(handle_detox_inspect({"evidence_id": ev_id, "start_line": 51, "end_line": 51}, session_id="sess_post_compact"))
+        self.assertTrue(res_relinked["success"], "Evidence is reachable once session is relinked")
+        self.assertIn("CRITICAL_PRE_COMPACTION_MARKER", res_relinked["content"])
+
+    def test_media_and_base64_payloads_left_untouched(self):
+        """Tool outputs containing base64 images or media URIs must bypass Detox to protect vision."""
+        # 1. Data URI PNG image payload (>8,000 chars)
+        fake_png_b64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ" + ("A" * 8000)
+        res_img = on_transform_tool_result(
+            tool_name="render_graph",
+            result=fake_png_b64,
+            session_id="media_sess",
+        )
+        self.assertIsNone(res_img, "Base64 data:image URI must return None (untouched)")
+
+        # 2. Video data URI
+        fake_vid_b64 = "data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDJpc29t" + ("B" * 8000)
+        res_vid = on_transform_tool_result(
+            tool_name="record_screen",
+            result=fake_vid_b64,
+            session_id="media_sess",
+        )
+        self.assertIsNone(res_vid, "Base64 data:video URI must return None (untouched)")
+
+        # 3. Raw base64 terminal output
+        raw_b64_term = ";base64," + ("C" * 8000)
+        res_term = on_transform_terminal_output(
+            command="cat image.b64",
+            output=raw_b64_term,
+            returncode=0,
+            env_type="bash",
+            session_id="media_sess",
+        )
+        self.assertIsNone(res_term, "Raw base64 terminal stream must return None (untouched)")
+
+    def test_default_excluded_tools(self):
+        """Sensible default excluded_tools (vision, media, file edits) must be active out of the box."""
+        cfg = get_config()
+        self.assertIn("browser_vision", cfg.excluded_tools)
+        self.assertIn("browser_snapshot", cfg.excluded_tools)
+        self.assertIn("image_generate", cfg.excluded_tools)
+        self.assertIn("patch", cfg.excluded_tools)
+        self.assertIn("write_file", cfg.excluded_tools)
+
+        large_payload = "Some line\n" * 800
+        # browser_snapshot output must not be intercepted
+        res_snap = on_transform_tool_result(tool_name="browser_snapshot", result=large_payload, session_id="s1")
+        self.assertIsNone(res_snap)
+        # patch output must not be intercepted
+        res_patch = on_transform_tool_result(tool_name="patch", result=large_payload, session_id="s1")
+        self.assertIsNone(res_patch)
+
     def test_redaction_behavior_with_secrets(self):
         """Verify secret handling across the store and outbound redaction pipeline.
         1. Raw secret is preserved in local SQLite database for exact fidelity.
         2. detox_inspect retrieves the raw line from SQLite verbatim.
-        3. Hermes outbound redaction (agent.redact.redact_sensitive_text) masks secrets when enabled."""
+        3. Outbound request path: when security.redact_secrets is ON, secret is masked before LLM.
+        4. When security.redact_secrets is OFF, secret passes to LLM unmasked."""
         secret_token = "sk-ant-api03-abcdef1234567890abcdef1234567890"
         lines = [
             "Configuration initialized.",
@@ -198,13 +283,27 @@ class TestDetoxSafetyAndRetention(unittest.TestCase):
         inspect_data = json.loads(inspect_raw)
         self.assertEqual(inspect_data["lines"][0], f"AUTH_TOKEN={secret_token}")
 
-        # Now test Hermes's outbound redaction layer
+        # Now test the real outbound redaction pipeline with redact_secrets ON vs OFF
         try:
-            from agent.redact import redact_sensitive_text
-            masked = redact_sensitive_text(inspect_data["content"])
-            self.assertNotIn(secret_token, masked, "Hermes outbound redactor must mask API key before LLM receives it")
+            import agent.redact as redact_module
         except ImportError:
-            pass  # Standalone environment without Hermes agent package
+            return  # hermes-agent not present in current test environment
+        try:
+            # A) With redact_secrets enabled (default)
+            redact_module._REDACT_ENABLED = True
+            masked_outbound = redact_module.redact_sensitive_text(inspect_data["content"])
+            self.assertNotIn(secret_token, masked_outbound, "With redact_secrets ON: API key must be masked before LLM sees it")
+            self.assertIn("AUTH_TOKEN=", masked_outbound)
+
+            # B) With redact_secrets disabled
+            redact_module._REDACT_ENABLED = False
+            unmasked_outbound = redact_module.redact_sensitive_text(inspect_data["content"])
+            self.assertIn(secret_token, unmasked_outbound, "With redact_secrets OFF: API key is passed to LLM unmasked")
+        finally:
+            try:
+                redact_module._REDACT_ENABLED = True
+            except Exception:
+                pass
 
     def test_excluded_tools_configuration(self):
         """Tools in excluded_tools configuration must never be intercepted, even if large."""
