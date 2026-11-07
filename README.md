@@ -8,6 +8,7 @@
 [![Tests: 74/74 Passing](https://img.shields.io/badge/tests-74%2F74%20passing-brightgreen.svg)](#verification--test-suite)
 [![Context Reduction: 88.3%](https://img.shields.io/badge/context%20reduction-88.3%25-blue.svg)](#empirical-benchmark)
 [![Signal Preservation: 100%](https://img.shields.io/badge/signal%20preservation-100%25%20(28%2F28)-brightgreen.svg)](#empirical-benchmark)
+[![Release: v0.1.0](https://img.shields.io/badge/release-v0.1.0-blue.svg)](https://github.com/kellycryptos/hermes-detox/releases/tag/v0.1.0)
 [![Hermes Agent](https://img.shields.io/badge/hermes--agent-%3E%3D0.19.0-blueviolet.svg)](#compatibility)
 
 ---
