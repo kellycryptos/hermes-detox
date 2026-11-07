@@ -99,7 +99,8 @@ def on_transform_tool_result(
         raw_output = result if isinstance(result, str) else str(result)
 
         # Do not re-intercept an output that has already been transformed (e.g. by terminal hook)
-        if raw_output.startswith("=== [DETOX FIREWALL:"):
+        # Check both raw text and JSON-wrapped output shapes (e.g. {"output": "=== [DETOX FIREWALL: ..."})
+        if "=== [DETOX FIREWALL:" in raw_output[:300]:
             return None
 
         raw_len = len(raw_output)
