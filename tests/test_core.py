@@ -444,5 +444,38 @@ class TestDetoxCore(unittest.TestCase):
         )
 
 
+    def test_terminal_json_wrapped_double_wrap_guard_unit(self):
+        """Deterministic unit test for JSON-wrapped terminal tool output.
+        Simulates Hermes lifecycle without external dependencies:
+        1. transform_terminal_output transforms large terminal stream.
+        2. Hermes serializes terminal result to JSON: {"output": report, "exit_code": 0}.
+        3. transform_tool_result intercepts the JSON result and must NOT double-wrap."""
+        stream = "Line data stream\n" * 500  # ~8500 chars
+        terminal_report = on_transform_terminal_output(
+            command="run_tests",
+            output=stream,
+            returncode=0,
+            session_id="unit_dw",
+        )
+        self.assertIsNotNone(terminal_report)
+        self.assertIn("=== [DETOX FIREWALL: terminal", terminal_report)
+
+        wrapped_json = json.dumps({
+            "output": terminal_report,
+            "exit_code": 0,
+            "error": None,
+        })
+
+        res = on_transform_tool_result(
+            tool_name="terminal",
+            args={"command": "run_tests"},
+            result=wrapped_json,
+            session_id="unit_dw",
+        )
+        self.assertIsNone(res, "JSON-wrapped terminal output must not be re-wrapped by transform_tool_result")
+        banner_count = wrapped_json.count("=== [DETOX FIREWALL:")
+        self.assertEqual(banner_count, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

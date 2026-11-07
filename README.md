@@ -5,7 +5,7 @@ Your context window deserves protection.
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20external-success.svg)](#security-and-privacy)
 [![Hermes](https://img.shields.io/badge/hermes--agent-%3E%3D0.19.0-blueviolet.svg)](#compatibility)
-[![Tests](https://img.shields.io/badge/tests-74-blue.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-75-blue.svg)](#development)
 [![Context Reduction](https://img.shields.io/badge/context%20reduction-about%2088%25-blue.svg)](#benchmark)
 
 Hermes Detox is a plugin for [Hermes Agent](https://hermes-agent.nousresearch.com/) that stops huge tool outputs from flooding the model's context. When a tool returns a large result, Detox saves the full original on your machine, hands the model a short report with an evidence ID, and lets the model pull back exact lines or search the original whenever it needs them.
@@ -232,7 +232,7 @@ hermes plugins validate . --install-deps
 hermes plugins doctor . --ci
 ```
 
-The test suite contains **74 tests** (73 passed, 1 skipped in the latest run).
+The test suite contains **75 tests** (74 passed, 1 skipped when Hermes CLI is absent).
 
 The last two commands need a Hermes version that includes them. Use a current source install of Hermes Agent.
 
