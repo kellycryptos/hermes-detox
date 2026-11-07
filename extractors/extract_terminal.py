@@ -39,7 +39,7 @@ def extract_terminal_summary(
             # Stop traceback block after error description line
             if not line.startswith(" ") and len(traceback_lines) > 2 and not line.startswith("Traceback"):
                 in_traceback = False
-        elif any(term in line.lower() for term in ("error:", "fatal:", "failed:", "exception:")):
+        elif any(term in line.lower() for term in ("error:", "error ", "fatal:", "fatal ", "failed:", "exception:")):
             error_lines.append((idx, line.strip()))
 
         if exit_code is None:
