@@ -30,22 +30,27 @@ jobs:
       - name: Install Hermes Agent and Dependencies
         run: |
           uv venv /tmp/hermes-venv --python 3.14
-          uv sync --directory /tmp/hermes-agent --python /tmp/hermes-venv
+          source /tmp/hermes-venv/bin/activate
+          uv sync --directory /tmp/hermes-agent
           echo "/tmp/hermes-venv/bin" >> $GITHUB_PATH
 
       - name: Inspect Hermes CLI
         run: |
+          source /tmp/hermes-venv/bin/activate
           which hermes
           hermes plugins --help
 
       - name: Run Plugin Test Suite
         run: |
+          source /tmp/hermes-venv/bin/activate
           python -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Run Hermes Plugin Validation
         run: |
+          source /tmp/hermes-venv/bin/activate
           hermes plugins validate . --install-deps
 
       - name: Run Hermes Plugin Doctor
         run: |
+          source /tmp/hermes-venv/bin/activate
           hermes plugins doctor . --ci
