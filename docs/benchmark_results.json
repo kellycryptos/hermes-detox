@@ -1,0 +1,86 @@
+{
+  "results": [
+    {
+      "scenario": "Pytest Test Suite (3 Fails / 42 Pass)",
+      "orig_chars": 15317,
+      "report_chars": 2869,
+      "reduction_pct": 81.3,
+      "orig_tokens": 3829,
+      "report_tokens": 717,
+      "tokens_saved": 3112,
+      "transform_ms": 19.95,
+      "inspect_ms": 0.14,
+      "fidelity_passed": true
+    },
+    {
+      "scenario": "C++ Compiler Build Log (GCC/Clang)",
+      "orig_chars": 9902,
+      "report_chars": 1894,
+      "reduction_pct": 80.9,
+      "orig_tokens": 2475,
+      "report_tokens": 473,
+      "tokens_saved": 2002,
+      "transform_ms": 10.01,
+      "inspect_ms": 0.08,
+      "fidelity_passed": true
+    },
+    {
+      "scenario": "JSON API Records (50 Nested Objects)",
+      "orig_chars": 29923,
+      "report_chars": 1973,
+      "reduction_pct": 93.4,
+      "orig_tokens": 7480,
+      "report_tokens": 493,
+      "tokens_saved": 6987,
+      "transform_ms": 5.79,
+      "inspect_ms": 0.16,
+      "fidelity_passed": true
+    },
+    {
+      "scenario": "Filesystem Listing (Tree with 580 Files)",
+      "orig_chars": 15155,
+      "report_chars": 671,
+      "reduction_pct": 95.6,
+      "orig_tokens": 3788,
+      "report_tokens": 167,
+      "tokens_saved": 3621,
+      "transform_ms": 14.23,
+      "inspect_ms": 0.17,
+      "fidelity_passed": true
+    },
+    {
+      "scenario": "Server Trace Log (420 Lines / 25k Chars)",
+      "orig_chars": 35448,
+      "report_chars": 2425,
+      "reduction_pct": 93.2,
+      "orig_tokens": 8862,
+      "report_tokens": 606,
+      "tokens_saved": 8256,
+      "transform_ms": 23.56,
+      "inspect_ms": 0.13,
+      "fidelity_passed": true
+    },
+    {
+      "scenario": "Massive Terminal Output (>50k Limit / 75k Chars)",
+      "orig_chars": 106913,
+      "report_chars": 1341,
+      "reduction_pct": 98.7,
+      "orig_tokens": 26728,
+      "report_tokens": 335,
+      "tokens_saved": 26393,
+      "transform_ms": 39.08,
+      "inspect_ms": 0.26,
+      "fidelity_passed": true
+    }
+  ],
+  "summary": {
+    "total_scenarios": 6,
+    "total_orig_chars": 212658,
+    "total_report_chars": 11173,
+    "overall_reduction_pct": 94.7,
+    "total_tokens_saved": 50371,
+    "avg_transform_ms": 18.77,
+    "avg_inspect_ms": 0.15,
+    "fidelity_rate": "100%"
+  }
+}
