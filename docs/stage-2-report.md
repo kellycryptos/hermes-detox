@@ -29,7 +29,7 @@ Stage 2 delivers specialized content-aware parsers that detect payload types and
    - `detect_and_extract_summary()` dispatcher routing by tool name and syntax heuristics with safe fallback to `None`.
 8. **`report.py`**:
    - Integrated `extractor_summary` section between header and head preview.
-   - Guaranteed `--- Diagnostic Findings ---` display for any error or warning located between head and tail boundaries.
+   - Formatted `--- Diagnostic Findings ---` display for any error or warning located between head and tail boundaries.
 
 ---
 

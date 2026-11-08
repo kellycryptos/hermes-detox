@@ -186,9 +186,9 @@ try:
     check("File listing intercepted and compressed", res_files is not None and "=== [DETOX FIREWALL:" in res_files)
 
     # -----------------------------------------------------------------------
-    # TEST 4: The Amputation & Zero-Loss Recovery Claim
+    # TEST 4: Diagnostic Findings & Exact Retrieval Claim
     # -----------------------------------------------------------------------
-    print("\n--- TEST 4: Zero-Loss Amputation & Diagnostic Vault ---")
+    print("\n--- TEST 4: Diagnostic Findings & Exact Retrieval Vault ---")
     lines = [f"[DEBUG] worker thread {i} cycle step 100" for i in range(1200)]
     CRITICAL_MARKER = "CRITICAL_DATABASE_TIMEOUT_EXCEPTION_AT_LINE_600"
     lines[599] = f"[ERROR] {CRITICAL_MARKER}: DB connection pool died"
@@ -206,7 +206,7 @@ try:
     # Verify critical marker is highlighted in the report
     check("Critical error at line 600 surfaced in diagnostic report", CRITICAL_MARKER in res_amputation)
 
-    # Verify 100% exact line retrieval via detox_inspect
+    # Verify exact line retrieval via detox_inspect
     inspect_res = handle_detox_inspect({"evidence_id": ev_id, "start_line": 599, "end_line": 601}, session_id="s_amp")
     inspect_data = json.loads(inspect_res)
     check("detox_inspect succeeds", inspect_data.get("success") is True)
