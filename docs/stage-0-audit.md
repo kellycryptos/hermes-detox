@@ -2,7 +2,7 @@
 
 > [!IMPORTANT]
 > **No code was written or committed.** The local workspace `c:\Users\HP\Downloads\Hernes Detox` is cloned and verified clean on branch `main` tracking `https://github.com/kellycryptos/hermes-detox`.
-> All findings below are backed by direct source inspection of the installed **Hermes Agent v0.19.0** (`Python 3.13.13`).
+> All findings below are backed by direct source inspection of the installed **Hermes Agent >=0.22.3** (`Python 3.13.13`).
 
 ---
 
@@ -19,7 +19,7 @@
 
 ---
 
-## 2. Source Code & API Findings (Hermes Agent v0.19.0)
+## 2. Source Code & API Findings (Hermes Agent >=0.22.3)
 
 ### 2.1 Interception Seam: `middleware` vs `transform_tool_result`
 
@@ -84,8 +84,8 @@
 
 **Crucial Findings:**
 - If terminal output exceeds 50,000 characters (or `tool_output.max_bytes`), **the middle chunk is destroyed by Hermes before `transform_tool_result` ever sees it**.
-- In contrast, **`transform_terminal_output` receives the 100% full un-truncated `output`** directly from process execution.
-- **Architectural Decision for Detox:** Detox should hook `transform_terminal_output` (to save the true un-truncated stdout/stderr to disk for terminal commands) **and** `transform_tool_result` (to firewall all tools and format compact reports).
+- In contrast, **`transform_terminal_output` receives the full original `output`** directly from process execution.
+- **Architectural Decision for Detox:** Detox should hook `transform_terminal_output` (to save the true original stdout/stderr to disk for terminal commands) **and** `transform_tool_result` (to firewall all tools and format compact reports).
 - **Baseline for Benchmark (Stage 4):** The baseline with Detox off is what the LLM actually receives — i.e., after Hermes's own 50,000-char truncation and ANSI stripping.
 
 ---
@@ -157,9 +157,9 @@ To prevent import collision bugs in Python 3.13:
 
 ### 2.7 Hermes Environment Details
 
-- **Installed Version:** Hermes Agent v0.19.0 (2026.7.20)
+- **Installed Version:** Hermes Agent >=0.22.3 (2026.7.20)
 - **Python Version:** 3.13.13 via `uv`
-- **Minimum Floor in `plugin.yaml`:** `requires_hermes: ">=0.19.0"`
+- **Minimum Floor in `plugin.yaml`:** `requires_hermes: ">=0.22.3"`
 - **Validation Commands:**
   - `hermes plugins doctor . --ci`
   - `hermes plugins validate . --install-deps` (or catalog script `scripts/validate_plugin_catalog.py`)
@@ -171,7 +171,7 @@ To prevent import collision bugs in Python 3.13:
 ```
 hermes-detox/
 ├── .gitignore                      # ignore __pycache__, *.pyc, *.db, *.db-wal, *.db-shm, benchmark results
-├── plugin.yaml                     # manifest with SemVer floor >=0.19.0 & config_schema
+├── plugin.yaml                     # manifest with SemVer floor >=0.22.3 & config_schema
 ├── __init__.py                     # register(ctx) - light, no IO/sockets
 ├── store.py                        # SQLite WAL evidence store via plugin_db / plugin_data_dir
 ├── report.py                       # generic compact report builder
@@ -203,7 +203,7 @@ hermes-detox/
 ## 4. Stage 1 Milestone Plan
 
 1. Create `.gitignore` to block `.pyc`, `__pycache__`, evidence databases (`*.db`, `*.db-*`), and scratch files.
-2. Create `plugin.yaml` declaring `requires_hermes: ">=0.19.0"`, `provides_hooks`, `provides_tools`, and `config_schema`.
+2. Create `plugin.yaml` declaring `requires_hermes: ">=0.22.3"`, `provides_hooks`, `provides_tools`, and `config_schema`.
 3. Create `store.py` implementing SQLite WAL storage under `plugin_data_dir("hermes-detox")` with safe file permissions (`0o600`), storing: evidence ID, session ID, tool name, timestamp, original output, original size, transformed size, content type, and status.
 4. Create `report.py` implementing generic compact report formatting with verbatim error preservation.
 5. Create `__init__.py` registering hooks (`transform_tool_result` and `transform_terminal_output`), tools (`detox_inspect`, `detox_search`, `detox_status`), and `/detox` command.

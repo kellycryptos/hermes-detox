@@ -1,6 +1,6 @@
 name: hermes-detox
 version: "0.1.0"
-description: "Tool output firewall for Hermes Agent. Intercepts large outputs before truncation, saves full raw text in local SQLite WAL, and delivers compact reports with on-demand retrieval tools."
+description: "Tool output firewall for Hermes Agent. Intercepts large outputs before truncation, sanitizes with Hermes pattern-based redaction helpers, stores in unencrypted local SQLite WAL, and delivers compact reports with on-demand retrieval tools."
 author: "kellycryptos"
 requires_hermes: ">=0.22.3"
 

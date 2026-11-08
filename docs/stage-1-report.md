@@ -1,7 +1,7 @@
 # Stage 1: Minimal Viable Core — Verification Report
 
 > [!IMPORTANT]
-> **Stage 1 is complete.** All 10 core unit tests pass in 0.16s, the plugin is registered and enabled in Hermes Agent v0.19.0, and a live execution run verified the firewall interception and exact line recovery.
+> **Stage 1 is complete.** All 10 core unit tests pass in 0.16s, the plugin is registered and enabled in Hermes Agent >=0.22.3, and a live execution run verified the firewall interception and exact line recovery.
 
 ---
 
@@ -10,7 +10,7 @@
 | File | Purpose |
 |---|---|
 | `.gitignore` | Ignores `__pycache__`, `*.pyc`, `*.db`, `*.db-*`, `benchmark/results/` |
-| `plugin.yaml` | Declares `requires_hermes: ">=0.19.0"`, `provides_hooks`, `provides_tools`, and `config_schema` |
+| `plugin.yaml` | Declares `requires_hermes: ">=0.22.3"`, `provides_hooks`, `provides_tools`, and `config_schema` |
 | `__init__.py` | Zero-I/O `register(ctx)`, `transform_tool_result`, `transform_terminal_output`, `/detox` slash command |
 | `store.py` | Thread-safe SQLite store in WAL mode, restrictive permissions (`0o600`), 1-based exact line slicing |
 | `report.py` | Compact report generator, head/tail preservation, diagnostic lines, and verbatim error blocks |

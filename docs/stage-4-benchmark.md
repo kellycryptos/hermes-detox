@@ -7,14 +7,14 @@
 **Estimated Tokens Saved:** **38,823 tokens** (estimated as $\text{chars} / 4$)  
 **Average Transformation Overhead:** **17.56 ms**  
 **Average Inspection Retrieval Overhead:** **0.16 ms**  
-**Storage Round-Trip Rate:** **100% (verbatim byte recovery)**  
+**Storage Round-Trip Rate:** **Verbatim byte recovery (matches stored redacted text)**  
 
 ---
 
 ## 1. Methodology & Baseline Rules
 
 1. **Token Estimation:** All token figures are calculated using the standard approximation of $\text{chars} / 4$, explicitly labeled as estimates.
-2. **Hermes Capped Baseline:** For the massive terminal output scenario, standard Hermes Agent enforces an inline truncation ceiling of 50,000 characters before the LLM sees it (dropping the middle 40–60%). The baseline is therefore capped at **50,000 characters**, while Detox captured the full **106,913 characters** un-truncated in SQLite.
+2. **Hermes Capped Baseline:** For the massive terminal output scenario, standard Hermes Agent enforces an inline truncation ceiling of 50,000 characters before the LLM sees it (dropping the middle 40–60%). The baseline is therefore capped at **50,000 characters**, while Detox captured the full **106,913 characters** before truncation in SQLite.
 3. **Storage Round-Trip:** Evaluates whether original lines (including error messages, line numbers, and markers) are retrievable byte-for-byte from SQLite via `detox_inspect`. This measures database fidelity, not LLM task completion.
 4. **Boundary Scenarios Included:** In addition to high-compression payloads, the benchmark explicitly measures:
    - Short outputs (<6,000 chars) that pass through untouched.
@@ -42,7 +42,7 @@
 
 ## 3. Key Observations
 
-1. **Realistic Baseline Impact:** When factoring in the Hermes 50,000-character truncation ceiling as the baseline for large terminal outputs, overall reduction is **88.2%** (saving an estimated **38,823 tokens**), while Detox preserves the full 106k payload un-truncated.
-2. **Loss-Free Middle Recovery:** In standard Hermes, line 750 of the massive terminal log (at byte offset ~53,400) would have been irreversibly dropped by inline truncation. Detox stored the full 106,913 characters before truncation and recovered line 750 in 0.18 ms with 100% byte fidelity.
+1. **Realistic Baseline Impact:** When factoring in the Hermes 50,000-character truncation ceiling as the baseline for large terminal outputs, overall reduction is **88.2%** (saving an estimated **38,823 tokens**), while Detox preserves the full 106k payload locally.
+2. **Middle Section Recovery:** In standard Hermes, line 750 of the massive terminal log (at byte offset ~53,400) would have been irreversibly dropped by inline truncation. Detox stored the full 106,913 characters before truncation and recovered line 750 in 0.18 ms with verbatim fidelity.
 3. **Safe Passthrough on Low Reducibility:** Outputs that do not benefit from compression (such as high-entropy payloads or single long lines) are caught by the 0.55 ratio gate in 2.77 ms and delivered to the model untouched without risk of report ballooning.
 4. **Sub-Millisecond Inspection:** `detox_inspect` retrieves exact 1-based line slices from local SQLite in an average of **0.16 ms**.

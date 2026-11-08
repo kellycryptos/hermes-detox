@@ -8,7 +8,7 @@
 
 ## 1. Summary of Deliverables
 
-Stage 3 hardens Hermes Detox with typed configuration management, non-blocking throttled retention pruning, multi-threaded SQLite WAL concurrency guarantees, and comprehensive security/redaction disclosures.
+Stage 3 hardens Hermes Detox with typed configuration management, non-blocking throttled retention pruning, multi-threaded SQLite WAL concurrency support, and comprehensive security/redaction disclosures.
 
 1. **`config.py`**:
    - Strongly-typed `DetoxConfig` dataclass with safe type coercion and validation guards.
@@ -28,10 +28,10 @@ Stage 3 hardens Hermes Detox with typed configuration management, non-blocking t
      - `transform_tool_result`
      - `transform_terminal_output`
      - `on_session_reset`
-   - All three hooks exist in `VALID_HOOKS` across both Hermes v0.19.0 and GitHub `main`.
+   - All three hooks exist in `VALID_HOOKS` across both Hermes >=0.22.3 and GitHub `main`.
 6. **Security & Redaction Verification**:
    - Disclosed storage architecture: Local unencrypted SQLite database located at `%LOCALAPPDATA%/hermes-agent/plugins/hermes-detox/detox.db` (or `~/.hermes/plugin-data/hermes-detox/detox.db`).
-   - Verified that while Detox preserves exact raw bytes in local SQLite for 100% reconstruction fidelity, Hermes Agent's outbound message sanitization pipeline (`agent.redact.redact_sensitive_text`) automatically redacts API keys and tokens (e.g. `sk-ant-api03-...`) before transmission to the model when `security.redact_secrets` is enabled.
+   - Detox uses Hermes redaction helpers (`redact_sensitive_text` and `redact_terminal_output`) before storing to local SQLite or delivering reports. Because redaction is pattern-based, it may miss secrets; retrieved lines reflect this redacted text. If Hermes's redaction helpers are unavailable, Detox stores nothing and fails open.
 
 ---
 
@@ -62,6 +62,6 @@ Ran 70 tests in 15.283s — OK
 
 ## 3. Pre-Deployment Security & Windows Storage Disclosure
 
-- **Storage Location:** `%LOCALAPPDATA%\hermes-agent\plugins\hermes-detox\detox.db` (or `~/.hermes/plugin-data/hermes-detox/detox.db`).
+- **Storage Location:** `%LOCALAPPDATA%\hermes\plugin-data\hermes-detox\detox.db` (or `~/.hermes/plugin-data/hermes-detox/detox.db`).
 - **File Permissions:** Created with directory permissions `0700` and file permissions `0600` on POSIX systems. On Windows NTFS systems, access is governed by the user profile ACL, accessible to the logged-in user and administrators. The SQLite database is **not** encrypted at rest.
 - **Sensitive Data Handling:** Raw tool outputs (such as environment variable dumps, test runs containing credentials, or curl authorization headers) are stored in plaintext locally. Hermes Agent's outbound redaction pipeline masks credentials before sending them to external LLMs during `detox_inspect` calls, but users with access to the local filesystem can read the database directly.

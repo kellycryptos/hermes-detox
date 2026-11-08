@@ -141,7 +141,7 @@ Settings are declared in `plugin.yaml` and read through Hermes's plugin configur
 | `max_ratio` | `0.55` | A report must be at most this fraction of the original, or the original is kept |
 | `head_lines` | `5` | Leading lines shown in a report |
 | `tail_lines` | `5` | Trailing lines shown in a report |
-| `excluded_tools` | see below | Tools Detox never touches |
+| `excluded_tools` | `browser_vision`, `browser_snapshot`, `image_generate`, `video_generate`, `video_analyze`, `vision_analyze`, `text_to_speech`, `patch`, `write_file` | Tools Detox never touches |
 | `retention_days` | `30` | Evidence older than this is pruned |
 | `max_store_size_mb` | `100` | Oldest evidence is removed when the database passes this size |
 | `debug` | `false` | Verbose logging |
@@ -154,7 +154,7 @@ Retention cleanup runs at most once every six hours, at session reset or through
 
 ## Reliability
 
-- **Fail open on every path.** Storage errors, extractor errors, and database corruption all return the original output.
+- **Fail open on every path.** If storage, extraction, or redaction fails, the hook returns None so Hermes handles the output as if the plugin were absent.
 - **No double wrapping.** A result that already carries a Detox report is never compacted again.
 - **Background process notifications** from Hermes are ignored.
 - **Images, audio, video, and base64 data** are left untouched.
@@ -192,7 +192,7 @@ These figures come from synthetic fixtures built to resemble common developer ou
 | Output with secret-like strings | 11,752 | 1,021 | 91.3% | 2,683 |
 | Short output below threshold | 1,095 | 1,095 | 0.0% | 0 |
 | Output the 0.55 gate rejects | 7,500 | 7,500 | 0.0% | 0 |
-| **Total** | **176,092** | **20,571** | **about 88%** | **about 38,800 (estimate)** |
+| **Total** | **176,092** | **20,571** | **about 88%** | **about 38,900 (chars/4 estimate)** |
 
 On the author's machine, transforming an output took tens of milliseconds and retrieving lines took under a millisecond. Run the benchmark to see figures for your hardware.
 
@@ -204,8 +204,8 @@ On the author's machine, transforming an output took tens of milliseconds and re
 
 ## Compatibility
 
-- Requires **Hermes Agent $\ge 0.22.3$** (for `post_compaction` and `on_session_delete` hook lifecycle support).
-- Developed against Hermes Agent 0.22.3+ and checked against the plugin validator on the current main branch.
+- Requires **Hermes Agent >=0.22.3** (for `post_compaction` and `on_session_delete` hook lifecycle support).
+- Checked against the plugin validator and doctor on the current main branch.
 - Registers three tools (`detox_inspect`, `detox_search`, `detox_status`), five hooks (`transform_tool_result`, `transform_terminal_output`, `on_session_reset`, `post_compaction`, `on_session_delete`), and one slash command (`/detox`).
 - If another plugin returns a string from `transform_tool_result` first, Hermes uses that string and Detox's result for that call is skipped.
 
@@ -213,7 +213,7 @@ On the author's machine, transforming an output took tens of milliseconds and re
 
 ## Known limitations
 
-1. **Compaction session migration:** When Hermes compacts a conversation, Detox's `post_compaction` hook relinks stored evidence to the new session ID so unscoped searches continue to resolve. In older Hermes runtimes without this hook, evidence must be accessed by explicit evidence ID.
+1. **Compaction session migration:** When Hermes compacts a conversation, Detox's `post_compaction` hook relinks stored evidence records from the old session ID to the new session ID, allowing unscoped `detox_search` within the new session to continue finding earlier outputs. `detox_inspect` requires an explicit `evidence_id`, which acts as a direct identifier across sessions. In older Hermes runtimes without `post_compaction`, evidence after compaction must be accessed by explicit `evidence_id`.
 2. **Reports are built by pattern-based extractors.** They don't understand meaning, so an unusual log format may fall back to the generic report.
 3. **Benchmarks use synthetic fixtures,** and token counts are estimates.
 4. **Effect on agent task success has not been evaluated.**
