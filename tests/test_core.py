@@ -16,6 +16,26 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+# Ensure agent.redact from hermes-agent is importable for tests
+try:
+    import agent.redact
+except ImportError:
+    for candidate in (
+        os.environ.get("HERMES_AGENT_PATH"),
+        str(Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"),
+        r"C:\Users\HP\AppData\Local\hermes\hermes-agent",
+        "/tmp/hermes-agent",
+        str(REPO_ROOT.parent / "hermes-repo"),
+        str(REPO_ROOT.parent / "hermes_pkg"),
+    ):
+        if candidate and os.path.isdir(candidate) and candidate not in sys.path:
+            sys.path.insert(0, candidate)
+            try:
+                import agent.redact
+                break
+            except ImportError:
+                pass
+
 # Import using module name from root
 import importlib.util
 _init_path = REPO_ROOT / "__init__.py"

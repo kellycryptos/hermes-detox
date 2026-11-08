@@ -93,9 +93,18 @@ def on_transform_tool_result(
         if "=== [DETOX FIREWALL:" in raw_output[:300]:
             return None
 
-        raw_len = len(raw_output)
-
         min_threshold = cfg.min_size
+
+        # Ensure Hermes redaction helper is available; fail open without storing if unavailable
+        try:
+            from agent.redact import redact_sensitive_text
+        except Exception:
+            logger.warning("Detox cannot import agent.redact.redact_sensitive_text; failing open without storing")
+            return None
+
+        # Redact sensitive text before storing or building reports
+        raw_output = redact_sensitive_text(raw_output, force=True)
+        raw_len = len(raw_output)
 
         # Small outputs stay completely unchanged
         if raw_len <= min_threshold:
@@ -214,6 +223,16 @@ def on_transform_terminal_output(
                             output = _spill_text
             except Exception as _spill_err:
                 logger.debug("Could not recover from terminal spill file: %s", _spill_err)
+
+        # Ensure Hermes redaction helper is available; fail open without storing if unavailable
+        try:
+            from agent.redact import redact_terminal_output
+        except Exception:
+            logger.warning("Detox cannot import agent.redact.redact_terminal_output; failing open without storing")
+            return None
+
+        # Redact terminal output before storing or building reports
+        output = redact_terminal_output(output, command)
 
         status = "success" if returncode == 0 else "error"
         extractor_res = detect_and_extract_summary(

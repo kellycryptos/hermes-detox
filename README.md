@@ -169,7 +169,7 @@ Retention cleanup runs at most once every six hours, at session reset or through
 - **Everything stays local.** Detox makes no network requests, sends no telemetry, and has no dependencies beyond the Python standard library.
 - **Evidence is stored in `<hermes home>/plugin-data/hermes-detox/detox.db`.** On Windows this is `%LOCALAPPDATA%\hermes\plugin-data\hermes-detox\detox.db`. On Linux and macOS it is `~/.hermes/plugin-data/hermes-detox/detox.db`.
 - **The database is not encrypted.** On Linux and macOS the directory and file are created with mode `0700` and `0600`. On Windows access follows your user profile permissions, which means your account and administrators can read it.
-- **Detox stores raw output,** so anything a tool prints can end up in the database, including credentials that show up in logs or environment dumps. Hermes redacts secrets in outbound messages when `security.redact_secrets` is on, so a stored secret may be masked before the model sees it. With that setting off, it is not.
+- **Detox redacts known secrets before storing.** Tool outputs are sanitized with Hermes's `redact_sensitive_text(force=True)` and terminal outputs with `redact_terminal_output(output, command)` before any text is written to the database or included in a report. Because redaction is pattern-based, it cannot catch every conceivable secret; retrieved lines and search results reflect this redacted text. If Hermes's redaction helpers are unavailable, Detox fails open, stores nothing, and leaves the original output untouched.
 - **Anyone using the same Hermes profile who knows an evidence ID can read that evidence,** even from another session. IDs are random, but treat them as sensitive.
 - Use `/detox purge` to remove evidence at any time, or lower `retention_days`.
 
@@ -196,7 +196,7 @@ These figures come from synthetic fixtures built to resemble common developer ou
 
 On the author's machine, transforming an output took tens of milliseconds and retrieving lines took under a millisecond. Run the benchmark to see figures for your hardware.
 
-**What these numbers show:** On large, noisy outputs the delivered size drops by more than 80%, small outputs pass through untouched, and the stored copy matches the original text. For the 106,913 character log, the baseline model view has already lost its middle section. Detox keeps that section retrievable.
+**What these numbers show:** On large, noisy outputs the delivered size drops by more than 80%, small outputs pass through untouched, and the stored copy matches the redacted output. For the 106,913 character log, the baseline model view has already lost its middle section. Detox keeps that section retrievable.
 
 **What they don't show:** Whether agents finish tasks better with Detox. That has not been measured, and no claim about task success is made here.
 
