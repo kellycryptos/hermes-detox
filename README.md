@@ -4,8 +4,8 @@ Your context window deserves protection.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20external-success.svg)](#security-and-privacy)
-[![Hermes](https://img.shields.io/badge/hermes--agent-%3E%3D0.19.0-blueviolet.svg)](#compatibility)
-[![Tests](https://img.shields.io/badge/tests-75-blue.svg)](#development)
+[![Hermes](https://img.shields.io/badge/hermes--agent-%3E%3D0.22.3-blueviolet.svg)](#compatibility)
+[![Tests](https://img.shields.io/badge/tests-81-blue.svg)](#development)
 [![Context Reduction](https://img.shields.io/badge/context%20reduction-about%2088%25-blue.svg)](#benchmark)
 
 Hermes Detox is a plugin for [Hermes Agent](https://hermes-agent.nousresearch.com/) that stops huge tool outputs from flooding the model's context. When a tool returns a large result, Detox saves the full original on your machine, hands the model a short report with an evidence ID, and lets the model pull back exact lines or search the original whenever it needs them.
@@ -22,7 +22,7 @@ Built for the Hermes Agent Plugin Hackathon.
 
 Agents spend most of their working life reading tool output: test runs, build logs, directory listings, API responses. A single failing test suite can put thousands of tokens of passing lines in front of the model, and every one of them costs money, pushes useful history out of the window, and gives the model more noise to dig through.
 
-Hermes already limits terminal output, and that limit has a cost of its own. In Hermes 0.19.0, terminal output over 50,000 characters is cut down to the first 40% and the last 60%, and the middle is dropped. The root cause of a failure often sits in that middle. The model never sees it, and no tool can bring it back.
+Hermes already limits terminal output, and that limit has a cost of its own. In the Hermes version Detox was developed against, terminal output over 50,000 characters is cut down to the first 40% and the last 60%, and the middle is dropped. The root cause of a failure often sits in that middle. The model never sees it, and no tool can bring it back.
 
 Detox changes the trade. It captures the full output before that cut happens, keeps it locally, and gives the model a compact view built from the lines that matter: errors, failures, tracebacks, counts, and file locations. If the compact view is not enough, the model asks for more and gets the exact original text.
 
@@ -218,6 +218,7 @@ On the author's machine, transforming an output took tens of milliseconds and re
 3. **Benchmarks use synthetic fixtures,** and token counts are estimates.
 4. **Effect on agent task success has not been evaluated.**
 5. **The evidence store is unencrypted,** as described under [Security and privacy](#security-and-privacy).
+6. **Pattern extractors skip lines over 300 characters.** To prevent slow regex evaluation on minified payloads or long lines, pattern extractors ignore lines longer than 300 characters. A critical signal (such as an error string) situated on a line over 300 characters will not appear in the compact report's summary section, but the full output remains archived in the local store and can be retrieved by line number via `detox_inspect`.
 
 ---
 
@@ -232,7 +233,7 @@ hermes plugins validate . --install-deps
 hermes plugins doctor . --ci
 ```
 
-The test suite contains **79 tests** (78 passed, 1 skipped when Hermes CLI is absent).
+The test suite contains **81 tests** (80 passed, 1 skipped when Hermes CLI is absent).
 
 The last two commands need a Hermes version that includes them. Use a current source install of Hermes Agent.
 

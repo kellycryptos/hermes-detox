@@ -22,24 +22,16 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-# Ensure agent.redact is importable
-try:
-    import agent.redact
-except ImportError:
-    for candidate in (
-        str(Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"),
-        r"C:\Users\HP\AppData\Local\hermes\hermes-agent",
-        "/tmp/hermes-agent",
-        str(REPO_ROOT.parent / "hermes-repo"),
-        str(REPO_ROOT.parent / "hermes_pkg"),
-    ):
-        if candidate and Path(candidate).is_dir() and candidate not in sys.path:
-            sys.path.insert(0, candidate)
-            try:
-                import agent.redact
-                break
-            except ImportError:
-                pass
+# Ensure hermes-agent candidate directories are on sys.path if running outside Hermes
+for candidate in (
+    str(Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"),
+    r"C:\Users\HP\AppData\Local\hermes\hermes-agent",
+    "/tmp/hermes-agent",
+    str(REPO_ROOT.parent / "hermes-repo"),
+    str(REPO_ROOT.parent / "hermes_pkg"),
+):
+    if candidate and Path(candidate).is_dir() and candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 import importlib.util
 if "hermes_detox" not in sys.modules:

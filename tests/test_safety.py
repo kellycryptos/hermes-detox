@@ -410,6 +410,42 @@ class TestDetoxSafetyAndRetention(unittest.TestCase):
             "No evidence records may be saved when redaction helpers are unavailable",
         )
 
+    def test_storage_unavailable_without_plugin_data_dir(self):
+        """If plugins.plugin_storage.plugin_data_dir cannot be imported, store nothing and return None."""
+        from unittest.mock import patch
+        from hermes_detox.store import resolve_data_dir, set_storage_dir_override
+        # Clear test storage override so resolve_data_dir attempts real resolution
+        set_storage_dir_override(None)
+        EvidenceStore.reset_instance()
+
+        try:
+            with patch.dict("sys.modules", {"plugins.plugin_storage": None, "plugins": None}):
+                self.assertIsNone(resolve_data_dir())
+                store = EvidenceStore.get_instance()
+                self.assertFalse(store.is_available())
+
+                large_payload = "Line of output\n" * 500  # > 6,000 chars
+                res_tool = on_transform_tool_result(
+                    tool_name="some_tool",
+                    result=large_payload,
+                    session_id="no_storage_sess",
+                )
+                self.assertIsNone(res_tool, "Tool hook must return None when storage is unavailable")
+
+                res_term = on_transform_terminal_output(
+                    command="echo test",
+                    output=large_payload,
+                    returncode=0,
+                    session_id="no_storage_sess",
+                )
+                self.assertIsNone(res_term, "Terminal hook must return None when storage is unavailable")
+
+                self.assertEqual(store.count_records(), 0, "No records should be stored when storage is unavailable")
+        finally:
+            # Restore test directory override
+            set_storage_dir_override(self.test_dir)
+            EvidenceStore.reset_instance()
+
     def test_user_excluded_tools_extends_defaults(self):
         """User-configured excluded_tools must extend the 9 default tools instead of replacing them."""
         # 1. Configured via from_dict (Hermes config loader)

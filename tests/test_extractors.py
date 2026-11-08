@@ -535,6 +535,58 @@ class TestExtractorRegexTimingBounds(unittest.TestCase):
                     f"{name} on 10k '{char_type}' took {duration:.4f}s (required < 0.5s)",
                 )
 
+    def test_long_line_containing_error_handled_and_retrievable(self):
+        """A line over 300 characters containing ERROR does not crash extractors and is retrievable by line number."""
+        import json
+        import re
+        import tempfile
+        import shutil
+        from pathlib import Path
+        from hermes_detox import on_transform_tool_result
+        from hermes_detox.detox_tools.tool_inspect import handle_detox_inspect
+        from hermes_detox.store import set_storage_dir_override, EvidenceStore
+
+        scratch = Path(tempfile.mkdtemp(prefix="detox_test_long_line_"))
+        set_storage_dir_override(scratch)
+        EvidenceStore.reset_instance()
+
+        try:
+            # Construct a payload with a 500-char line containing ERROR
+            long_error_line = "DEBUG: " + ("x" * 200) + " CRITICAL ERROR IN COMPONENT " + ("y" * 250)
+            prefix = "INFO: setup completed successfully\n"
+            suffix = "\nINFO: routine telemetry line\n" * 200  # > 6,000 chars total
+            full_output = prefix + long_error_line + suffix
+
+            # 1. Transform output: must not crash, must return valid compact report
+            report = on_transform_tool_result(
+                tool_name="worker_daemon",
+                result=full_output,
+                session_id="long_line_test_sess",
+            )
+            self.assertIsNotNone(report)
+            self.assertIn("=== [DETOX FIREWALL: worker_daemon", report)
+
+            # 2. Extract evidence ID
+            match = re.search(r"evidence: `(ev_[a-f0-9]+)`", report)
+            self.assertIsNotNone(match)
+            ev_id = match.group(1)
+
+            # 3. Retrieve the long error line (line 2) via detox_inspect
+            inspect_raw = handle_detox_inspect({
+                "evidence_id": ev_id,
+                "start_line": 2,
+                "end_line": 2,
+            }, session_id="long_line_test_sess")
+            inspect_data = json.loads(inspect_raw)
+            self.assertTrue(inspect_data["success"])
+            self.assertEqual(len(inspect_data["lines"]), 1)
+            self.assertIn("CRITICAL ERROR IN COMPONENT", inspect_data["lines"][0])
+            self.assertEqual(inspect_data["lines"][0], long_error_line)
+        finally:
+            set_storage_dir_override(None)
+            EvidenceStore.reset_instance()
+            shutil.rmtree(scratch, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

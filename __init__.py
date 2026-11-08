@@ -22,6 +22,7 @@ from .extractors import detect_and_extract_summary
 from .report import build_compact_report
 from .retention import maybe_run_retention_prune, run_retention_prune
 from .store import EvidenceStore
+from ._redact import redact_sensitive_text, redact_terminal_output
 
 logger = logging.getLogger("hermes_detox")
 
@@ -91,14 +92,13 @@ def on_transform_tool_result(
         min_threshold = cfg.min_size
 
         # Ensure Hermes redaction helper is available; fail open without storing if unavailable
-        try:
-            from agent.redact import redact_sensitive_text
-        except Exception:
+        redacted = redact_sensitive_text(raw_output, force=True)
+        if redacted is None:
             logger.warning("Detox cannot import agent.redact.redact_sensitive_text; failing open without storing")
             return None
 
         # Redact sensitive text before storing or building reports
-        raw_output = redact_sensitive_text(raw_output, force=True)
+        raw_output = redacted
         raw_len = len(raw_output)
 
         # Small outputs stay completely unchanged
@@ -118,6 +118,9 @@ def on_transform_tool_result(
         content_type = extractor_res.get("content_type", "text/plain") if extractor_res else "text/plain"
 
         store = EvidenceStore.get_instance()
+        if not store.is_available():
+            logger.warning("Detox storage unavailable (plugin_data_dir could not be resolved); failing open without storing")
+            return None
         head_count = cfg.head_lines
         tail_count = cfg.tail_lines
 
@@ -201,14 +204,13 @@ def on_transform_terminal_output(
             return None
 
         # Ensure Hermes redaction helper is available; fail open without storing if unavailable
-        try:
-            from agent.redact import redact_terminal_output
-        except Exception:
+        redacted = redact_terminal_output(output, command)
+        if redacted is None:
             logger.warning("Detox cannot import agent.redact.redact_terminal_output; failing open without storing")
             return None
 
         # Redact terminal output before storing or building reports
-        output = redact_terminal_output(output, command)
+        output = redacted
 
         status = "success" if returncode == 0 else "error"
         extractor_res = detect_and_extract_summary(
@@ -222,6 +224,9 @@ def on_transform_terminal_output(
 
         content_type = extractor_res.get("content_type", "text/x-terminal") if extractor_res else "text/x-terminal"
         store = EvidenceStore.get_instance()
+        if not store.is_available():
+            logger.warning("Detox storage unavailable (plugin_data_dir could not be resolved); failing open without storing")
+            return None
         session_id = kwargs.get("session_id", "default")
 
         # Pre-save un-truncated terminal evidence

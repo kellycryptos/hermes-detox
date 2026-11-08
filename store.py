@@ -29,41 +29,32 @@ def set_storage_dir_override(path: Optional[Path]) -> None:
     EvidenceStore.reset_instance()
 
 
-def resolve_data_dir() -> Path:
+def resolve_data_dir() -> Optional[Path]:
     """Resolve the persistent data directory for hermes-detox.
     
-    Tries the official plugins.plugin_storage helper first, then falls back
-    to the standard Hermes home path, never writing inside the plugin directory.
+    Uses plugins.plugin_storage.plugin_data_dir("hermes-detox") only.
+    If it cannot be imported and no override is set, returns None.
     """
     if _LOCAL_STORAGE_OVERRIDE is not None:
         _LOCAL_STORAGE_OVERRIDE.mkdir(parents=True, exist_ok=True)
         return _LOCAL_STORAGE_OVERRIDE
 
-    # 1. Try documented plugin_data_dir helper if available
     try:
         from plugins.plugin_storage import plugin_data_dir
         path = Path(plugin_data_dir("hermes-detox"))
         path.mkdir(parents=True, exist_ok=True)
         return path
-    except Exception:
-        pass
-
-    # 2. Try hermes_constants get_hermes_home
-    try:
-        from hermes_constants import get_hermes_home
-        base = get_hermes_home()
-        path = base / "plugin-data" / "hermes-detox"
-        path.mkdir(parents=True, exist_ok=True)
-        return path
-    except Exception:
-        pass
-
-    raise RuntimeError("Could not resolve Hermes data directory via plugins.plugin_storage or hermes_constants.get_hermes_home()")
+    except Exception as exc:
+        logger.debug("plugins.plugin_storage.plugin_data_dir unavailable: %s", exc)
+        return None
 
 
-def get_db_path() -> Path:
-    """Return the absolute path to the detox evidence database."""
-    return resolve_data_dir() / "detox.db"
+def get_db_path() -> Optional[Path]:
+    """Return the absolute path to the detox evidence database, or None if unavailable."""
+    d = resolve_data_dir()
+    if d is None:
+        return None
+    return d / "detox.db"
 
 
 def _init_db_connection(db_path: Path) -> sqlite3.Connection:
@@ -130,9 +121,13 @@ class EvidenceStore:
     _lock = threading.RLock()  # Re-entrant lock prevents recursive deadlocks
 
     def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = db_path or get_db_path()
+        self.db_path = db_path if db_path is not None else get_db_path()
         self._local = threading.local()
         self._connections: List[sqlite3.Connection] = []
+
+    def is_available(self) -> bool:
+        """Return True if storage backend is available with a valid database path."""
+        return self.db_path is not None
 
     @classmethod
     def get_instance(cls) -> "EvidenceStore":
@@ -152,6 +147,8 @@ class EvidenceStore:
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get thread-local SQLite connection."""
+        if self.db_path is None:
+            raise RuntimeError("EvidenceStore storage is unavailable (plugin_data_dir could not be resolved)")
         conn = getattr(self._local, "conn", None)
         if conn is None:
             with self._lock:
@@ -222,6 +219,8 @@ class EvidenceStore:
 
     def get(self, evidence_id: str, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Retrieve full evidence record by ID. Enforces session isolation when session_id is provided."""
+        if not self.is_available():
+            return None
         conn = self._get_conn()
         if session_id:
             cursor = conn.execute(
@@ -244,6 +243,12 @@ class EvidenceStore:
         session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Retrieve exact 1-based line slice from stored evidence."""
+        if not self.is_available():
+            return {
+                "success": False,
+                "error": "Storage unavailable",
+                "id": evidence_id,
+            }
         record = self.get(evidence_id, session_id=session_id)
         if not record:
             return {
@@ -288,6 +293,14 @@ class EvidenceStore:
         limit: int = 20,
     ) -> Dict[str, Any]:
         """Search lines in stored evidence matching a query string."""
+        if not self.is_available():
+            return {
+                "success": False,
+                "query": query,
+                "matches_count": 0,
+                "limit": limit,
+                "results": [],
+            }
         conn = self._get_conn()
         results: List[Dict[str, Any]] = []
 
@@ -343,6 +356,17 @@ class EvidenceStore:
 
     def status(self, session_id: Optional[str] = None) -> Dict[str, Any]:
         """Calculate aggregate interception metrics."""
+        if not self.is_available():
+            return {
+                "success": False,
+                "error": "Storage unavailable",
+                "session_id": session_id or "all",
+                "outputs_intercepted": 0,
+                "characters_in": 0,
+                "characters_out": 0,
+                "characters_saved": 0,
+                "saved_percentage": 0.0,
+            }
         conn = self._get_conn()
         if session_id:
             cursor = conn.execute(
@@ -384,7 +408,7 @@ class EvidenceStore:
 
     def purge_session(self, session_id: str) -> int:
         """Purge all stored evidence records for a given session ID."""
-        if not session_id:
+        if not self.is_available() or not session_id:
             return 0
         conn = self._get_conn()
         with conn:
@@ -395,6 +419,8 @@ class EvidenceStore:
 
     def count_records(self, session_id: Optional[str] = None) -> int:
         """Return the number of stored evidence records."""
+        if not self.is_available():
+            return 0
         conn = self._get_conn()
         if session_id:
             cursor = conn.execute("SELECT COUNT(*) FROM evidence WHERE session_id = ?", (session_id,))
@@ -405,6 +431,8 @@ class EvidenceStore:
 
     def get_db_size(self) -> int:
         """Return total disk size in bytes of the SQLite database including WAL and SHM files."""
+        if not self.is_available() or self.db_path is None:
+            return 0
         total = 0
         for p in (
             self.db_path,
@@ -420,7 +448,7 @@ class EvidenceStore:
 
     def purge_older_than(self, days: int) -> int:
         """Purge evidence records older than the specified number of days."""
-        if days < 0:
+        if not self.is_available() or days < 0:
             return 0
         cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
         cutoff_str = cutoff.isoformat()
@@ -439,7 +467,7 @@ class EvidenceStore:
 
     def enforce_size_cap(self, max_bytes: int) -> int:
         """Purge oldest evidence records until the database disk size is within max_bytes."""
-        if max_bytes <= 0:
+        if not self.is_available() or max_bytes <= 0:
             return 0
 
         conn = self._get_conn()
@@ -471,7 +499,7 @@ class EvidenceStore:
 
     def relink_session(self, old_session_id: str, new_session_id: str) -> int:
         """Relink evidence records from old_session_id to new_session_id (e.g. after compaction)."""
-        if not old_session_id or not new_session_id:
+        if not self.is_available() or not old_session_id or not new_session_id:
             return 0
         conn = self._get_conn()
         with conn:
