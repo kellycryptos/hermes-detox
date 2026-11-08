@@ -39,13 +39,17 @@ def extract_build_summary(raw_output: str) -> Optional[Dict[str, Any]]:
     dependency_issues: List[Tuple[int, str]] = []
 
     for idx, line in enumerate(lines, start=1):
+        if len(line) > 300:
+            target_line = line[:300]
+        else:
+            target_line = line
+
         # Quick substring pre-filter: compiler diagnostics always contain ':' or '('
-        if ":" not in line and "(" not in line:
-            if _DEPENDENCY_ERROR_RE.search(line[:300]):
-                dependency_issues.append((idx, line.strip()))
+        if ":" not in target_line and "(" not in target_line:
+            if _DEPENDENCY_ERROR_RE.search(target_line):
+                dependency_issues.append((idx, target_line.strip()))
             continue
 
-        target_line = line[:500] if len(line) > 500 else line
         m = _COMPILER_DIAGNOSTIC_RE.search(target_line)
         if m:
             d = m.groupdict()
@@ -63,7 +67,7 @@ def extract_build_summary(raw_output: str) -> Optional[Dict[str, Any]]:
             continue
 
         if _DEPENDENCY_ERROR_RE.search(target_line):
-            dependency_issues.append((idx, line.strip()))
+            dependency_issues.append((idx, target_line.strip()))
 
     if not diagnostics and not dependency_issues:
         return None

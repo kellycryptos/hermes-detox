@@ -31,19 +31,24 @@ def extract_terminal_summary(
 
     in_traceback = False
     for idx, line in enumerate(lines, start=1):
-        if _TRACEBACK_START_RE.search(line):
+        if len(line) > 300:
+            target_line = line[:300]
+        else:
+            target_line = line
+
+        if _TRACEBACK_START_RE.search(target_line):
             in_traceback = True
 
         if in_traceback:
-            traceback_lines.append((idx, line.strip()))
+            traceback_lines.append((idx, target_line.strip()))
             # Stop traceback block after error description line
-            if not line.startswith(" ") and len(traceback_lines) > 2 and not line.startswith("Traceback"):
+            if not target_line.startswith(" ") and len(traceback_lines) > 2 and not target_line.startswith("Traceback"):
                 in_traceback = False
-        elif any(term in line.lower() for term in ("error:", "error ", "fatal:", "fatal ", "failed:", "exception:")):
-            error_lines.append((idx, line.strip()))
+        elif any(term in target_line.lower() for term in ("error:", "error ", "fatal:", "fatal ", "failed:", "exception:")):
+            error_lines.append((idx, target_line.strip()))
 
         if exit_code is None:
-            m = _EXIT_STATUS_RE.search(line)
+            m = _EXIT_STATUS_RE.search(target_line)
             if m:
                 exit_code = int(m.group(2))
 

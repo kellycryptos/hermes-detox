@@ -466,5 +466,65 @@ class TestStage1Regression(unittest.TestCase):
         self.assertIn("OK", result.stdout + result.stderr)
 
 
+
+# ---------------------------------------------------------------------------
+# Regex Catastrophic Backtracking & Line Length Timing Guard
+# ---------------------------------------------------------------------------
+
+class TestExtractorRegexTimingBounds(unittest.TestCase):
+    """Timing tests verifying all extractor entry points and regexes complete well under 1 second on 10,000-char lines."""
+
+    def setUp(self):
+        import time
+        self.time = time
+        self.test_lines = {
+            "equals": "=" * 10000,
+            "spaces": " " * 10000,
+            "letters": "a" * 10000,
+            "hyphens": "-" * 10000,
+            "digits": "0123456789" * 1000,
+            "colons": ":" * 10000,
+        }
+
+    def test_pytest_summary_regex_anchored_timing(self):
+        """_PYTEST_SUMMARY_RE must evaluate a 10,000-char '=' line in well under 1 second."""
+        from extractors.extract_tests import _PYTEST_SUMMARY_RE
+        t0 = self.time.perf_counter()
+        _PYTEST_SUMMARY_RE.search("=" * 10000)
+        duration = self.time.perf_counter() - t0
+        self.assertLess(duration, 0.2, f"_PYTEST_SUMMARY_RE search took {duration:.4f}s >= 0.2s")
+
+    def test_all_extractor_entry_points_timing(self):
+        """Every extractor entry point must finish well under 1 second for 10,000-char lines."""
+        from extractors.extract_tests import extract_test_summary
+        from extractors.extract_build import extract_build_summary
+        from extractors.extract_files import extract_file_listing_summary
+        from extractors.extract_json import extract_json_summary
+        from extractors.extract_terminal import extract_terminal_summary
+        from extractors.extract_text import extract_plain_text_summary
+        from extractors import detect_and_extract_summary
+
+        entry_points = [
+            ("extract_test_summary", lambda s: extract_test_summary(s)),
+            ("extract_build_summary", lambda s: extract_build_summary(s)),
+            ("extract_file_listing_summary", lambda s: extract_file_listing_summary(s)),
+            ("extract_json_summary", lambda s: extract_json_summary(s)),
+            ("extract_terminal_summary", lambda s: extract_terminal_summary(s)),
+            ("extract_plain_text_summary", lambda s: extract_plain_text_summary(s)),
+            ("detect_and_extract_summary", lambda s: detect_and_extract_summary(tool_name="test", raw_output=s, status="success")),
+        ]
+
+        for name, fn in entry_points:
+            for char_type, line_data in self.test_lines.items():
+                t0 = self.time.perf_counter()
+                fn(line_data)
+                duration = self.time.perf_counter() - t0
+                self.assertLess(
+                    duration,
+                    0.5,
+                    f"{name} on 10k '{char_type}' took {duration:.4f}s (required < 0.5s)",
+                )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

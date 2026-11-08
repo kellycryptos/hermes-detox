@@ -35,6 +35,8 @@ def extract_file_listing_summary(raw_output: str) -> Optional[Dict[str, Any]]:
     total_entries = 0
 
     for line in lines:
+        if len(line) > 300:
+            continue
         stripped = line.strip()
         if not stripped:
             continue

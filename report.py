@@ -32,9 +32,10 @@ def extract_diagnostic_lines(lines: List[str], max_matches: int = 40) -> List[Tu
         stripped = line.strip()
         if not stripped:
             continue
-        if _ERROR_PATTERNS.search(stripped):
+        target = stripped[:300] if len(stripped) > 300 else stripped
+        if _ERROR_PATTERNS.search(target):
             matches.append((idx, "ERROR", line))
-        elif _WARNING_PATTERNS.search(stripped):
+        elif _WARNING_PATTERNS.search(target):
             matches.append((idx, "WARN", line))
         if len(matches) >= max_matches:
             break

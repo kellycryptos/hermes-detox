@@ -25,7 +25,10 @@ def extract_plain_text_summary(raw_output: str) -> Optional[Dict[str, Any]]:
     error_contexts: List[Tuple[int, str]] = []
 
     for idx, line in enumerate(lines, start=1):
-        stripped = line.strip()
+        if len(line) > 300:
+            stripped = line[:300].strip()
+        else:
+            stripped = line.strip()
         if not stripped:
             continue
         if _HEADING_RE.match(stripped) and len(stripped) < 100:

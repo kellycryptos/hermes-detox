@@ -12,7 +12,9 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 _PYTEST_SUMMARY_RE = re.compile(
-    r"(=+\s*(?:(?P<failed>\d+)\s+failed)?(?:[,\s]+(?P<passed>\d+)\s+passed)?(?:[,\s]+(?P<skipped>\d+)\s+skipped)?.*in\s+[\d\.]+s\s*=+|(?P<failures_only>\d+)\s+failed)",
+    r"^=+\s*(?:(?P<failed>\d+)\s+failed)?(?:[,\s]+(?P<passed>\d+)\s+passed)?(?:[,\s]+(?P<skipped>\d+)\s+skipped)?[^=\n]{0,200}?in\s+[\d\.]+s[^=\n]{0,40}=+$"
+    r"|^=+\s*(?:(?P<failed_short>\d+)\s+failed)?(?:[,\s]+(?P<passed_short>\d+)\s+passed)?(?:[,\s]+(?P<skipped_short>\d+)\s+skipped)?\s*=+$"
+    r"|^(?P<failures_only>\d+)\s+failed$",
     re.IGNORECASE,
 )
 
@@ -46,23 +48,33 @@ def extract_test_summary(raw_output: str) -> Optional[Dict[str, Any]]:
 
     # 1. Check for pytest summary
     for line in lines[-15:]:
+        if len(line) > 300:
+            continue
         m = _PYTEST_SUMMARY_RE.search(line)
         if m:
             framework = "pytest"
             d = m.groupdict()
             if d.get("failed"):
                 failed = int(d["failed"])
+            elif d.get("failed_short"):
+                failed = int(d["failed_short"])
             elif d.get("failures_only"):
                 failed = int(d["failures_only"])
             if d.get("passed"):
                 passed = int(d["passed"])
+            elif d.get("passed_short"):
+                passed = int(d["passed_short"])
             if d.get("skipped"):
                 skipped = int(d["skipped"])
+            elif d.get("skipped_short"):
+                skipped = int(d["skipped_short"])
             break
 
     # 2. Check for unittest summary
     if failed is None:
         for line in lines[-10:]:
+            if len(line) > 300:
+                continue
             m = _UNITTEST_SUMMARY_RE.search(line)
             if m:
                 framework = "unittest"
@@ -76,6 +88,8 @@ def extract_test_summary(raw_output: str) -> Optional[Dict[str, Any]]:
     # 3. Check for cargo test summary
     if failed is None:
         for line in lines[-10:]:
+            if len(line) > 300:
+                continue
             m = _CARGO_TEST_RE.search(line)
             if m:
                 framework = "cargo_test"
@@ -88,6 +102,8 @@ def extract_test_summary(raw_output: str) -> Optional[Dict[str, Any]]:
     # 4. Check for go test failures
     go_fails = []
     for line in lines:
+        if len(line) > 300:
+            continue
         m = _GO_TEST_RE.search(line)
         if m:
             go_fails.append(m.group("test"))
@@ -104,6 +120,8 @@ def extract_test_summary(raw_output: str) -> Optional[Dict[str, Any]]:
     in_failure_section = False
 
     for idx, line in enumerate(lines, start=1):
+        if len(line) > 300:
+            continue
         if "=== FAILURES ===" in line or "FAILURES" in line:
             in_failure_section = True
         if _TEST_FAILURE_LINE_RE.search(line):
