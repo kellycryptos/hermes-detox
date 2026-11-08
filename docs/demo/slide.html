@@ -301,11 +301,11 @@
           The <strong>Diagnostic Firewall</strong> for Hermes Agent. Intercepts oversized tool output, archives full originals locally, and hands the model compact diagnostic reports with exact line retrieval.
         </p>
         <div class="cover-tags">
-          <div class="pill green">Context Reduction: 88.3%</div>
-          <div class="pill purple">Signal Preservation: 100% (28/28)</div>
+          <div class="pill green">Context Reduction: about 88%</div>
+          <div class="pill purple">Diagnostics Captured: 28/28</div>
           <div class="pill">Retrieval Latency: 0.16 ms</div>
           <div class="pill">Dependencies: 0 External (Python stdlib)</div>
-          <div class="pill">Tests: 75/75 (74 Passing, 1 Env Skip)</div>
+          <div class="pill">Tests: 82 Passing</div>
         </div>
       </div>
       <div class="deck-footer">
@@ -341,9 +341,9 @@
         </div>
 
         <div class="card compare-bad">
-          <div class="card-title" style="color: #F87171;">03 / Root Causes Amputated</div>
+          <div class="card-title" style="color: #F87171;">03 / Root Causes Buried or Truncated</div>
           <div class="card-text">
-            Stack traces, assertion diffs, and core error logs typically sit in that destroyed middle chunk. <strong>No tool can bring them back</strong>, causing the agent to hallucinate or fail tasks.
+            Stack traces, assertion diffs, and core error logs get buried in noisy passing lines or lost in middle truncation, forcing the agent to burn context turns.
           </div>
         </div>
       </div>
@@ -451,20 +451,20 @@
         <div class="card compare-bad" style="padding: 32px;">
           <div style="font-size: 20px; font-weight: 700; color: #F87171; margin-bottom: 12px;">Without Detox (Standard Hermes)</div>
           <div class="card-text" style="font-size: 16px;">
-            • 3,000 lines generated (148,000 characters).<br><br>
-            • Standard 50k inline cap keeps 40% head and 60% tail.<br><br>
-            • <strong>Line 1,743 (Root Cause Failure) is amputated and lost forever.</strong><br><br>
-            • Model hallucinates or fails the task.
+            • 1,200 lines generated (44,000 characters).<br><br>
+            • Standard tool execution floods context with repetitive noise.<br><br>
+            • <strong>Critical errors buried in hundreds of passing lines.</strong><br><br>
+            • Model wastes tokens reading irrelevant passing logs.
           </div>
         </div>
 
         <div class="card compare-good" style="padding: 32px;">
           <div style="font-size: 20px; font-weight: 700; color: #34D399; margin-bottom: 12px;">With Hermes Detox Active</div>
           <div class="card-text" style="font-size: 16px;">
-            • Intercepts before truncation; cuts <strong>99% of noise</strong>.<br><br>
-            • <strong>Line 1,743 extracted instantly</strong> in compact diagnostic report.<br><br>
+            • Compacts oversized outputs; cuts <strong>about 88% of noise</strong>.<br><br>
+            • <strong>Diagnostic errors extracted instantly</strong> in compact report.<br><br>
             • Logs archived in local SQLite WAL.<br><br>
-            • Model retrieves lines 1740–1746 via <asciimath>detox_inspect</asciimath> in <strong>0.16 ms</strong>.
+            • Model retrieves exact lines via <asciimath>detox_inspect</asciimath> in <strong>0.16 ms</strong>.
           </div>
         </div>
       </div>

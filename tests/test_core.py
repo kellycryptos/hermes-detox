@@ -28,8 +28,13 @@ except ImportError:
         str(REPO_ROOT.parent / "hermes-repo"),
         str(REPO_ROOT.parent / "hermes_pkg"),
     ):
-        if candidate and os.path.isdir(candidate) and candidate not in sys.path:
-            sys.path.insert(0, candidate)
+        if candidate and os.path.isdir(candidate):
+            if candidate not in sys.path:
+                sys.path.insert(0, candidate)
+            import glob
+            for vp in glob.glob(str(Path(candidate) / ".venv" / "*" / "site-packages")) + glob.glob(str(Path(candidate) / ".venv" / "*" / "*" / "site-packages")):
+                if os.path.isdir(vp) and vp not in sys.path:
+                    sys.path.insert(1, vp)
             try:
                 import agent.redact
                 break
@@ -500,37 +505,66 @@ class TestDetoxCore(unittest.TestCase):
         self.assertIn("CRITICAL_MIDDLE_MARKER_99887766", inspect_data["content"])
 
     def test_real_terminal_json_wrapped_double_wrap_guard(self):
-        """Integration test with handle_function_call on terminal tool.
+        """Integration test with handle_function_call on terminal tool in an isolated runtime.
         Verifies that when terminal tool returns JSON-wrapped output:
         {"output": "=== [DETOX FIREWALL: ...", "exit_code": 0, "error": null}
         the double-wrap guard matches and the model receives exactly ONE report."""
         try:
-            from hermes_cli.plugins import get_plugin_manager
-            pm = get_plugin_manager()
-            pm.discover_and_load()
-            from model_tools import handle_function_call
+            import hermes_cli
+            import model_tools
         except ImportError:
             self.skipTest("Hermes runtime not importable in this environment")
 
-        cmd = f'"{sys.executable}" -c "for i in range(200): print(f\'line {{i}}: {chr(120)*40}\')"'
-        res = handle_function_call("terminal", {"command": cmd})
-        self.assertIsInstance(res, str)
-        parsed = json.loads(res)
-        self.assertIn("output", parsed)
-        output_text = parsed["output"]
-        # This is a full-runtime integration test. If the Detox plugin is not
-        # installed/enabled inside the Hermes process under test, the raw
-        # terminal output is returned. Skip cleanly in that case.
-        if "[DETOX FIREWALL: terminal" not in output_text:
-            self.skipTest("Detox plugin not active in the Hermes runtime under test")
+        import subprocess
+        import tempfile
+        import shutil
 
-        # Count occurrences of Detox banner across entire response: MUST BE EXACTLY 1 (no double wrap)
-        banner_count = res.count("=== [DETOX FIREWALL:")
-        self.assertEqual(
-            banner_count,
-            1,
-            f"Expected exactly 1 firewall report, but found {banner_count} (double wrapped!)",
-        )
+        tmp_home = Path(tempfile.mkdtemp(prefix="hermes_isolated_test_"))
+        try:
+            plugins_dir = tmp_home / "plugins"
+            plugins_dir.mkdir(parents=True)
+            repo_dir = Path(__file__).resolve().parent.parent
+            shutil.copytree(repo_dir, plugins_dir / "hermes-detox", ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache"))
+            with open(tmp_home / "config.yaml", "w", encoding="utf-8") as f:
+                f.write("plugins:\n  enabled:\n    - hermes-detox\n")
+
+            gen_script = tmp_home / "gen.py"
+            with open(gen_script, "w", encoding="utf-8") as f:
+                f.write("for i in range(200):\n    print('line', i, 'x' * 40)\n")
+
+            worker_script = tmp_home / "run_isolated.py"
+            worker_code = [
+                "import os, sys, json",
+                f"for p in {json.dumps([p for p in sys.path if p])}:",
+                "    if p and p not in sys.path: sys.path.insert(0, p)",
+                "from hermes_cli.plugins import get_plugin_manager",
+                "pm = get_plugin_manager()",
+                "pm.discover_and_load(force=True)",
+                "import model_tools",
+                f"cmd = f'\"{{sys.executable}}\" \"{gen_script.as_posix()}\"'",
+                "res = model_tools.handle_function_call('terminal', {'command': cmd})",
+                "print(res)",
+            ]
+            with open(worker_script, "w", encoding="utf-8") as f:
+                f.write("\n".join(worker_code))
+
+            env = os.environ.copy()
+            env["HERMES_HOME"] = str(tmp_home)
+            env["PYTHONPATH"] = os.pathsep.join(sys.path)
+            proc = subprocess.run(
+                [sys.executable, str(worker_script)],
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=30,
+            )
+            self.assertEqual(proc.returncode, 0, f"Worker failed: {proc.stderr}\n{proc.stdout}")
+            res = proc.stdout.strip()
+            self.assertIn("=== [DETOX FIREWALL: terminal", res)
+            banner_count = res.count("=== [DETOX FIREWALL:")
+            self.assertEqual(banner_count, 1, f"Expected 1 banner, found {banner_count}")
+        finally:
+            shutil.rmtree(tmp_home, ignore_errors=True)
 
 
     def test_terminal_json_wrapped_double_wrap_guard_unit(self):

@@ -504,6 +504,29 @@ class TestExtractorRegexTimingBounds(unittest.TestCase):
         duration = self.time.perf_counter() - t0
         self.assertLess(duration, 0.2, f"_PYTEST_SUMMARY_RE search took {duration:.4f}s >= 0.2s")
 
+    def test_compiler_and_ts_diagnostic_regexes_bounded_timing(self):
+        """_COMPILER_DIAGNOSTIC_RE and _TS_DIAGNOSTIC_RE must evaluate 10,000-char inputs in under 100ms."""
+        from hermes_detox.extractors.extract_build import _COMPILER_DIAGNOSTIC_RE, _TS_DIAGNOSTIC_RE
+        fuzz_inputs = [
+            "a/" * 5000,
+            "=" * 10000,
+            ":" * 10000,
+            "(" * 10000,
+            " " * 10000,
+            "word_segment " * 800,
+            "src/path/to/file.ts:123: " * 400,
+        ]
+        for s in fuzz_inputs:
+            t0 = self.time.perf_counter()
+            _COMPILER_DIAGNOSTIC_RE.search(s)
+            d1 = (self.time.perf_counter() - t0) * 1000
+            self.assertLess(d1, 100, f"_COMPILER_DIAGNOSTIC_RE search took {d1:.2f}ms >= 100ms")
+
+            t0 = self.time.perf_counter()
+            _TS_DIAGNOSTIC_RE.search(s)
+            d2 = (self.time.perf_counter() - t0) * 1000
+            self.assertLess(d2, 100, f"_TS_DIAGNOSTIC_RE search took {d2:.2f}ms >= 100ms")
+
     def test_all_extractor_entry_points_timing(self):
         """Every extractor entry point must finish well under 1 second for 10,000-char lines."""
         from hermes_detox.extractors.extract_tests import extract_test_summary

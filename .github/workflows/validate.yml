@@ -9,7 +9,12 @@ on:
 
 jobs:
   validate:
+    name: Validate (${{ matrix.hermes_ref }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        hermes_ref: [main, v0.22.3]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,9 +28,9 @@ jobs:
         run: |
           uv python install 3.14
 
-      - name: Clone Hermes Agent (main)
+      - name: Clone Hermes Agent (${{ matrix.hermes_ref }})
         run: |
-          git clone --depth 1 https://github.com/NousResearch/hermes-agent.git /tmp/hermes-agent
+          git clone --depth 1 --branch ${{ matrix.hermes_ref }} https://github.com/NousResearch/hermes-agent.git /tmp/hermes-agent
 
       - name: Install Hermes Agent and Dependencies
         run: |

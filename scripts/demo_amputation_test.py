@@ -1,9 +1,8 @@
-"""Hermes Detox — The Amputation Test Demonstration.
+"""Hermes Detox — Diagnostic Firewall Demonstration.
 
-Demonstrates the fundamental difference between commodity compressors
-(which blindly slice head/tail and amputate critical failure signals)
-and the Hermes Detox Zero-Loss Diagnostic Firewall (which guarantees
-100% critical signal preservation while cutting 88%+ of noise).
+Demonstrates how Hermes Detox compresses oversized tool outputs,
+archives the full text in local SQLite storage, and extracts
+critical failure signals into a compact diagnostic report.
 
 Run directly:
     uv run python scripts/demo_amputation_test.py
@@ -63,7 +62,7 @@ def run_amputation_demo() -> None:
             pass
 
     print("=" * 80)
-    print("HERMES DETOX -- THE AMPUTATION TEST (Zero-Loss vs Lossy Compression)")
+    print("HERMES DETOX -- DIAGNOSTIC FIREWALL DEMONSTRATION")
     print("=" * 80)
     print("Simulating a realistic 1,500-line test log (106,913 characters)")
     print("with a critical failure buried in the middle at Line 750...\n")
@@ -98,10 +97,10 @@ def run_amputation_demo() -> None:
     print()
 
     # -------------------------------------------------------------------------
-    # 2. Hermes Detox Zero-Loss Diagnostic Firewall
+    # 2. Hermes Detox Diagnostic Firewall
     # -------------------------------------------------------------------------
     print("-" * 80)
-    print("[2] HERMES DETOX (Zero-Loss Diagnostic Firewall)")
+    print("[2] HERMES DETOX (Diagnostic Firewall)")
     print("-" * 80)
 
     scratch_dir = Path(tempfile.mkdtemp(prefix="detox_demo_"))
@@ -130,7 +129,7 @@ def run_amputation_demo() -> None:
     print(f"• Input Size:        {orig_chars:,} characters")
     print(f"• Output Delivered:  {len(report):,} characters ({(1.0 - len(report)/orig_chars)*100:.1f}% noise eliminated)")
     print(f"• Processing Time:   {transform_ms:.2f} ms")
-    print(f"• Root Cause Status: {'[OK] PRESERVED (100% Critical Signal Retention)' if preserved else 'Missing'}")
+    print(f"• Root Cause Status: {'[OK] PRESERVED (Critical Signal Extracted)' if preserved else 'Missing'}")
     print(f"• Vault Evidence ID: {ev_id} (Zero-network SQLite WAL)")
     print()
     print("Diagnostic findings delivered directly into model context:")
@@ -162,7 +161,7 @@ def run_amputation_demo() -> None:
         print("  " + line)
 
     print("\n" + "=" * 80)
-    print("VERDICT: Detox eliminates 98.6% of context noise without blinding the model.")
+    print("VERDICT: Detox eliminates about 88% of context noise without losing diagnostic access.")
     print("=" * 80)
 
     # Cleanup

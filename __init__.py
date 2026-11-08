@@ -183,7 +183,7 @@ def on_transform_terminal_output(
     env_type: str = "",
     **kwargs: Any,
 ) -> Optional[str]:
-    """Hook: intercept terminal outputs before Hermes's 50k inline truncation drops the middle."""
+    """Hook: compact terminal outputs and archive them for on-demand inspection."""
     try:
         cfg = get_config()
         if not cfg.enabled:

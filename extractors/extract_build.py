@@ -16,12 +16,12 @@ from typing import Any, Dict, List, Optional, Tuple
 # Example: src/index.ts(42,15): error TS2339: Property 'x' does not exist
 # Example: main.c:88:12: error: expected ';' before 'return'
 _COMPILER_DIAGNOSTIC_RE = re.compile(
-    r"(?P<file>[a-zA-Z0-9_\-\./\\]+):(?P<line>\d+)(?::(?P<col>\d+))?:\s*(?P<severity>error|fatal error|warning)(?:\[(?P<code>[A-Za-z0-9_]+)\])?:\s*(?P<msg>[^\n]+)",
+    r"(?:^|(?<=\s))(?P<file>(?:[a-zA-Z]:[\\/])?[a-zA-Z0-9_\-\./\\]{1,250}):(?P<line>\d{1,8})(?::(?P<col>\d{1,8}))?:\s*(?P<severity>error|fatal error|warning)(?:\[(?P<code>[A-Za-z0-9_]{1,50})\])?:\s*(?P<msg>[^\n]{1,500})",
     re.IGNORECASE,
 )
 
 _TS_DIAGNOSTIC_RE = re.compile(
-    r"(?P<file>[a-zA-Z0-9_\-\./\\]+)[\(:](?P<line>\d+)(?:,\d+)?[\)]?:\s*(?P<severity>error|warning)\s+(?P<code>TS\d+):\s*(?P<msg>[^\n]+)",
+    r"(?:^|(?<=\s))(?P<file>(?:[a-zA-Z]:[\\/])?[a-zA-Z0-9_\-\./\\]{1,250})[\(:](?P<line>\d{1,8})(?:,\d{1,8})?[\)]?:\s*(?P<severity>error|warning)\s+(?P<code>TS\d+):\s*(?P<msg>[^\n]{1,500})",
     re.IGNORECASE,
 )
 

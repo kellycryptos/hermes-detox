@@ -5,7 +5,7 @@ Your context window deserves protection.
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20external-success.svg)](#security-and-privacy)
 [![Hermes](https://img.shields.io/badge/hermes--agent-%3E%3D0.22.3-blueviolet.svg)](#compatibility)
-[![Tests](https://img.shields.io/badge/tests-81-blue.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-82-blue.svg)](#development)
 [![Context Reduction](https://img.shields.io/badge/context%20reduction-about%2088%25-blue.svg)](#benchmark)
 
 Hermes Detox is a plugin for [Hermes Agent](https://hermes-agent.nousresearch.com/) that stops huge tool outputs from flooding the model's context. When a tool returns a large result, Detox saves the full original on your machine, hands the model a short report with an evidence ID, and lets the model pull back exact lines or search the original whenever it needs them.
@@ -22,9 +22,9 @@ Built for the Hermes Agent Plugin Hackathon.
 
 Agents spend most of their working life reading tool output: test runs, build logs, directory listings, API responses. A single failing test suite can put thousands of tokens of passing lines in front of the model, and every one of them costs money, pushes useful history out of the window, and gives the model more noise to dig through.
 
-Hermes already limits terminal output, and that limit has a cost of its own. In the Hermes version Detox was developed against, terminal output over 50,000 characters is cut down to the first 40% and the last 60%, and the middle is dropped. The root cause of a failure often sits in that middle. The model never sees it, and no tool can bring it back.
+Hermes already limits very large terminal output by cutting it down and saving the full text to a file. Detox works on the output Hermes passes to its hooks. If Hermes has already cut a very large terminal output, Detox cannot restore the missing part. For everything else, including large test runs, build logs, JSON, file listings and tool results under that limit, Detox archives the full text and gives the model a compact summary, leaving the full text searchable with detox_search and exact lines retrievable with detox_inspect.
 
-Detox changes the trade. It captures the full output before that cut happens, keeps it locally, and gives the model a compact view built from the lines that matter: errors, failures, tracebacks, counts, and file locations. If the compact view is not enough, the model asks for more and gets the exact original text.
+
 
 ---
 
@@ -196,7 +196,7 @@ These figures come from synthetic fixtures built to resemble common developer ou
 
 On the author's machine, transforming an output took tens of milliseconds and retrieving lines took under a millisecond. Run the benchmark to see figures for your hardware.
 
-**What these numbers show:** On large, noisy outputs the delivered size drops by more than 80%, small outputs pass through untouched, and the stored copy matches the redacted output. For the 106,913 character log, the baseline model view has already lost its middle section. Detox keeps that section retrievable.
+**What these numbers show:** On large, noisy outputs the delivered size drops by more than 80%, small outputs pass through untouched, and the stored copy matches the redacted output. For terminal output over Hermes's capture limit, Hermes cuts the middle section and saves the full text to a spill file; Detox works on the output Hermes passes to it and gives the model a compact view of that text.
 
 **What they don't show:** Whether agents finish tasks better with Detox. That has not been measured, and no claim about task success is made here.
 
@@ -233,7 +233,7 @@ hermes plugins validate . --install-deps
 hermes plugins doctor . --ci
 ```
 
-The test suite contains **81 tests** (80 passed, 1 skipped when Hermes CLI is absent).
+The test suite contains **82 tests** (82 passed, 0 failed).
 
 The last two commands need a Hermes version that includes them. Use a current source install of Hermes Agent.
 
@@ -256,7 +256,7 @@ The last two commands need a Hermes version that includes them. Use a current so
 
 Hermes Detox was built for the **Hermes Agent Plugin Hackathon**. It changes how Hermes handles tool output, using hooks, tools, and persistent local state.
 
-- **Usefulness:** It protects context on the outputs that waste the most of it, and it recovers detail Hermes would otherwise drop.
+- **Usefulness:** It protects context on the outputs that waste the most of it, keeping full originals searchable and inspectable on demand.
 - **Reliability:** It fails open, skips what it shouldn't touch, and is covered by automated tests for every fallback path.
 - **Polish:** Zero dependencies, one-command install, configurable from `plugin.yaml`, and honest documentation of limits and risks.
 - **Creativity:** Compaction and retrieval work together. The model reads a short report and keeps full access to the original.
