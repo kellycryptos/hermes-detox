@@ -21,8 +21,18 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        continue-on-error: true
         with:
           enable-cache: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure uv is installed
+        run: |
+          if ! command -v uv &> /dev/null; then
+            echo "setup-uv encountered an issue, installing uv via official installer..."
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            echo "$HOME/.local/bin" >> $GITHUB_PATH
+          fi
 
       - name: Set up Python
         run: |
@@ -30,7 +40,12 @@ jobs:
 
       - name: Clone Hermes Agent (${{ matrix.hermes_ref }})
         run: |
-          git clone --depth 1 --branch ${{ matrix.hermes_ref }} https://github.com/NousResearch/hermes-agent.git /tmp/hermes-agent
+          git clone --depth 1 --branch ${{ matrix.hermes_ref }} https://github.com/NousResearch/hermes-agent.git /tmp/hermes-agent || {
+            echo "Shallow clone failed, falling back to full clone for ref ${{ matrix.hermes_ref }}..."
+            git clone https://github.com/NousResearch/hermes-agent.git /tmp/hermes-agent
+            cd /tmp/hermes-agent
+            git checkout ${{ matrix.hermes_ref }}
+          }
 
       - name: Install Hermes Agent and Dependencies
         run: |
