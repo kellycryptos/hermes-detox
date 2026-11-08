@@ -51,7 +51,14 @@ jobs:
         run: |
           cd /tmp/hermes-agent
           uv venv .venv --python 3.14
-          uv sync
+          echo "Attempting uv sync --frozen..."
+          if ! uv sync --frozen; then
+            echo "uv sync --frozen failed, attempting uv sync..."
+            if ! uv sync; then
+              echo "uv sync failed, falling back to uv pip install -e . ..."
+              uv pip install -e .
+            fi
+          fi
           echo "/tmp/hermes-agent/.venv/bin" >> $GITHUB_PATH
 
       - name: Inspect Hermes CLI
