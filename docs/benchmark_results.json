@@ -10,8 +10,8 @@
       "baseline_tokens_est": 3829,
       "delivered_tokens_est": 717,
       "tokens_saved_est": 3112,
-      "transform_ms": 30.71,
-      "inspect_ms": 0.28,
+      "transform_ms": 77.8,
+      "inspect_ms": 0.22,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -24,8 +24,8 @@
       "baseline_tokens_est": 2475,
       "delivered_tokens_est": 473,
       "tokens_saved_est": 2002,
-      "transform_ms": 6.65,
-      "inspect_ms": 0.1,
+      "transform_ms": 24.52,
+      "inspect_ms": 0.28,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -38,8 +38,8 @@
       "baseline_tokens_est": 7480,
       "delivered_tokens_est": 493,
       "tokens_saved_est": 6987,
-      "transform_ms": 14.8,
-      "inspect_ms": 0.22,
+      "transform_ms": 105.89,
+      "inspect_ms": 0.3,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -52,8 +52,8 @@
       "baseline_tokens_est": 3788,
       "delivered_tokens_est": 227,
       "tokens_saved_est": 3561,
-      "transform_ms": 14.67,
-      "inspect_ms": 0.17,
+      "transform_ms": 31.7,
+      "inspect_ms": 0.3,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -66,8 +66,8 @@
       "baseline_tokens_est": 8862,
       "delivered_tokens_est": 455,
       "tokens_saved_est": 8407,
-      "transform_ms": 39.62,
-      "inspect_ms": 0.15,
+      "transform_ms": 102.06,
+      "inspect_ms": 0.18,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -80,8 +80,8 @@
       "baseline_tokens_est": 12500,
       "delivered_tokens_est": 371,
       "tokens_saved_est": 12129,
-      "transform_ms": 116.2,
-      "inspect_ms": 0.46,
+      "transform_ms": 182.45,
+      "inspect_ms": 0.33,
       "storage_roundtrip": "PASS (verbatim)"
     },
     {
@@ -94,7 +94,7 @@
       "baseline_tokens_est": 273,
       "delivered_tokens_est": 273,
       "tokens_saved_est": 0,
-      "transform_ms": 0.01,
+      "transform_ms": 0.64,
       "inspect_ms": 0.0,
       "storage_roundtrip": "N/A (passthrough untouched)"
     },
@@ -108,7 +108,7 @@
       "baseline_tokens_est": 1875,
       "delivered_tokens_est": 1875,
       "tokens_saved_est": 0,
-      "transform_ms": 10.81,
+      "transform_ms": 1.24,
       "inspect_ms": 0.0,
       "storage_roundtrip": "N/A (passthrough untouched)"
     },
@@ -116,25 +116,25 @@
       "scenario": "Output with Secret-Looking Strings",
       "captured_by_detox": 11752,
       "baseline_chars": 11752,
-      "delivered_chars": 1032,
-      "reduction_pct": 91.2,
+      "delivered_chars": 1021,
+      "reduction_pct": 91.3,
       "critical_signals_preserved": "1/1 (100%)",
       "baseline_tokens_est": 2938,
-      "delivered_tokens_est": 258,
-      "tokens_saved_est": 2680,
-      "transform_ms": 28.49,
-      "inspect_ms": 0.63,
-      "storage_roundtrip": "PASS (verbatim)"
+      "delivered_tokens_est": 255,
+      "tokens_saved_est": 2683,
+      "transform_ms": 32.78,
+      "inspect_ms": 0.11,
+      "storage_roundtrip": "PASS (redacted)"
     }
   ],
   "summary": {
     "total_scenarios": 9,
     "total_baseline_chars": 176092,
-    "total_delivered_chars": 20582,
+    "total_delivered_chars": 20571,
     "overall_reduction_pct": 88.3,
-    "total_tokens_saved_est": 38878,
-    "avg_transform_ms": 29.11,
-    "avg_inspect_ms": 0.29,
+    "total_tokens_saved_est": 38881,
+    "avg_transform_ms": 62.12,
+    "avg_inspect_ms": 0.25,
     "critical_signal_preservation_rate": "100.0% (28/28 verified in delivered context)",
     "storage_roundtrip_rate": "100%"
   }

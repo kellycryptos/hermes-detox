@@ -12,8 +12,8 @@ from pathlib import Path
 import time
 from typing import Any, Dict, Optional
 
-from config import DetoxConfig, get_config
-from store import EvidenceStore, resolve_data_dir
+from .config import DetoxConfig, get_config
+from .store import EvidenceStore, resolve_data_dir
 
 logger = logging.getLogger("hermes_detox.retention")
 

@@ -19,21 +19,48 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-# Import hermes_detox module
+# Ensure agent.redact is importable for verification
+try:
+    import agent.redact
+except ImportError:
+    for candidate in (
+        str(Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"),
+        r"C:\Users\HP\AppData\Local\hermes\hermes-agent",
+        "/tmp/hermes-agent",
+        str(REPO_ROOT.parent / "hermes-repo"),
+        str(REPO_ROOT.parent / "hermes_pkg"),
+    ):
+        if candidate and Path(candidate).is_dir() and candidate not in sys.path:
+            sys.path.insert(0, candidate)
+            try:
+                import agent.redact
+                break
+            except ImportError:
+                pass
+
 import importlib.util
-_init_path = REPO_ROOT / "__init__.py"
-_spec = importlib.util.spec_from_file_location("hermes_detox", str(_init_path))
-_mod = importlib.util.module_from_spec(_spec)
-sys.modules["hermes_detox"] = _mod
-_spec.loader.exec_module(_mod)
+if "hermes_detox" not in sys.modules:
+    _init_path = REPO_ROOT / "__init__.py"
+    _spec = importlib.util.spec_from_file_location(
+        "hermes_detox",
+        str(_init_path),
+        submodule_search_locations=[str(REPO_ROOT)],
+    )
+    _mod = importlib.util.module_from_spec(_spec)
+    _mod.__package__ = "hermes_detox"
+    _mod.__path__ = [str(REPO_ROOT)]
+    sys.modules["hermes_detox"] = _mod
+    _spec.loader.exec_module(_mod)
+else:
+    _mod = sys.modules["hermes_detox"]
 detox = _mod
-from config import DetoxConfig, get_config, set_config
-from store import EvidenceStore, set_storage_dir_override
-from detox_tools.tool_inspect import handle_detox_inspect
-from detox_tools.tool_search import handle_detox_search
-from detox_tools.tool_status import handle_detox_status
-from retention import run_retention_prune, maybe_run_retention_prune
-from extractors import detect_and_extract_summary
+from hermes_detox.config import DetoxConfig, get_config, set_config
+from hermes_detox.store import EvidenceStore, set_storage_dir_override
+from hermes_detox.detox_tools.tool_inspect import handle_detox_inspect
+from hermes_detox.detox_tools.tool_search import handle_detox_search
+from hermes_detox.detox_tools.tool_status import handle_detox_status
+from hermes_detox.retention import run_retention_prune, maybe_run_retention_prune
+from hermes_detox.extractors import detect_and_extract_summary
 
 passed_checks = []
 failed_checks = []

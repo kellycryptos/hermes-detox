@@ -16,10 +16,20 @@ import types
 import unittest
 
 # ---------------------------------------------------------------------------
-# Path bootstrap: insert project root so relative imports resolve correctly.
+# Path bootstrap: load plugin as package identical to Hermes loader
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = pathlib.Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+if "hermes_detox" not in sys.modules:
+    spec = importlib.util.spec_from_file_location(
+        "hermes_detox",
+        str(PROJECT_ROOT / "__init__.py"),
+        submodule_search_locations=[str(PROJECT_ROOT)],
+    )
+    mod = importlib.util.module_from_spec(spec)
+    mod.__package__ = "hermes_detox"
+    mod.__path__ = [str(PROJECT_ROOT)]
+    sys.modules["hermes_detox"] = mod
+    spec.loader.exec_module(mod)
 
 FIXTURE_DIR = pathlib.Path(__file__).parent / "fixtures"
 
@@ -36,7 +46,7 @@ class TestJsonExtractor(unittest.TestCase):
     """extract_json_summary — parse large_data.json fixture."""
 
     def setUp(self):
-        from extractors.extract_json import extract_json_summary
+        from hermes_detox.extractors.extract_json import extract_json_summary
         self.extract = extract_json_summary
         self.raw = _load_fixture("large_data.json")
 
@@ -98,7 +108,7 @@ class TestTestExtractor(unittest.TestCase):
     """extract_test_summary — parse pytest_failures.txt fixture."""
 
     def setUp(self):
-        from extractors.extract_tests import extract_test_summary
+        from hermes_detox.extractors.extract_tests import extract_test_summary
         self.extract = extract_test_summary
         self.raw = _load_fixture("pytest_failures.txt")
 
@@ -134,7 +144,7 @@ class TestBuildExtractor(unittest.TestCase):
     """extract_build_summary — parse build_errors.txt fixture."""
 
     def setUp(self):
-        from extractors.extract_build import extract_build_summary
+        from hermes_detox.extractors.extract_build import extract_build_summary
         self.extract = extract_build_summary
         self.raw = _load_fixture("build_errors.txt")
 
@@ -170,7 +180,7 @@ class TestTerminalExtractor(unittest.TestCase):
     """extract_terminal_summary — parse terminal_failure.txt fixture."""
 
     def setUp(self):
-        from extractors.extract_terminal import extract_terminal_summary
+        from hermes_detox.extractors.extract_terminal import extract_terminal_summary
         self.extract = extract_terminal_summary
         self.raw = _load_fixture("terminal_failure.txt")
 
@@ -205,7 +215,7 @@ class TestFileListingExtractor(unittest.TestCase):
     """extract_file_listing_summary — parse directory_tree.txt fixture."""
 
     def setUp(self):
-        from extractors.extract_files import extract_file_listing_summary
+        from hermes_detox.extractors.extract_files import extract_file_listing_summary
         self.extract = extract_file_listing_summary
         self.raw = _load_fixture("directory_tree.txt")
 
@@ -248,7 +258,7 @@ class TestDispatcher(unittest.TestCase):
     """detect_and_extract_summary routes tool outputs to the right extractor."""
 
     def setUp(self):
-        from extractors import detect_and_extract_summary
+        from hermes_detox.extractors import detect_and_extract_summary
         self.dispatch = detect_and_extract_summary
 
     def test_routes_json_payload(self):
@@ -298,7 +308,7 @@ class TestReportWithExtractorSummary(unittest.TestCase):
     """build_compact_report uses extractor_summary when provided."""
 
     def setUp(self):
-        from report import build_compact_report
+        from hermes_detox.report import build_compact_report
         self.build_report = build_compact_report
 
     def test_extractor_summary_section_appears(self):
@@ -347,7 +357,7 @@ class TestExtractorGroundTruthFidelity(unittest.TestCase):
     """
 
     def setUp(self):
-        from store import EvidenceStore, set_storage_dir_override
+        from hermes_detox.store import EvidenceStore, set_storage_dir_override
         import tempfile
         self.temp_dir = tempfile.TemporaryDirectory()
         set_storage_dir_override(pathlib.Path(self.temp_dir.name))
@@ -355,15 +365,15 @@ class TestExtractorGroundTruthFidelity(unittest.TestCase):
         self.store = EvidenceStore.get_instance()
 
     def tearDown(self):
-        from store import EvidenceStore, set_storage_dir_override
+        from hermes_detox.store import EvidenceStore, set_storage_dir_override
         EvidenceStore.reset_instance()
         set_storage_dir_override(None)
         self.temp_dir.cleanup()
 
     def _verify_fidelity(self, tool_name: str, raw_output: str, status: str = "success"):
         import re
-        from report import build_compact_report, _ERROR_PATTERNS
-        from extractors import detect_and_extract_summary
+        from hermes_detox.report import build_compact_report, _ERROR_PATTERNS
+        from hermes_detox.extractors import detect_and_extract_summary
 
         orig_lines = raw_output.splitlines()
         ev_id = self.store.save("fid_sess", tool_name, raw_output, 0)
@@ -488,7 +498,7 @@ class TestExtractorRegexTimingBounds(unittest.TestCase):
 
     def test_pytest_summary_regex_anchored_timing(self):
         """_PYTEST_SUMMARY_RE must evaluate a 10,000-char '=' line in well under 1 second."""
-        from extractors.extract_tests import _PYTEST_SUMMARY_RE
+        from hermes_detox.extractors.extract_tests import _PYTEST_SUMMARY_RE
         t0 = self.time.perf_counter()
         _PYTEST_SUMMARY_RE.search("=" * 10000)
         duration = self.time.perf_counter() - t0
@@ -496,13 +506,13 @@ class TestExtractorRegexTimingBounds(unittest.TestCase):
 
     def test_all_extractor_entry_points_timing(self):
         """Every extractor entry point must finish well under 1 second for 10,000-char lines."""
-        from extractors.extract_tests import extract_test_summary
-        from extractors.extract_build import extract_build_summary
-        from extractors.extract_files import extract_file_listing_summary
-        from extractors.extract_json import extract_json_summary
-        from extractors.extract_terminal import extract_terminal_summary
-        from extractors.extract_text import extract_plain_text_summary
-        from extractors import detect_and_extract_summary
+        from hermes_detox.extractors.extract_tests import extract_test_summary
+        from hermes_detox.extractors.extract_build import extract_build_summary
+        from hermes_detox.extractors.extract_files import extract_file_listing_summary
+        from hermes_detox.extractors.extract_json import extract_json_summary
+        from hermes_detox.extractors.extract_terminal import extract_terminal_summary
+        from hermes_detox.extractors.extract_text import extract_plain_text_summary
+        from hermes_detox.extractors import detect_and_extract_summary
 
         entry_points = [
             ("extract_test_summary", lambda s: extract_test_summary(s)),

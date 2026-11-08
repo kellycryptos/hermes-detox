@@ -10,12 +10,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from extractors.extract_build import extract_build_summary
-from extractors.extract_files import extract_file_listing_summary
-from extractors.extract_json import extract_json_summary
-from extractors.extract_terminal import extract_terminal_summary
-from extractors.extract_tests import extract_test_summary
-from extractors.extract_text import extract_plain_text_summary
+from .extract_build import extract_build_summary
+from .extract_files import extract_file_listing_summary
+from .extract_json import extract_json_summary
+from .extract_terminal import extract_terminal_summary
+from .extract_tests import extract_test_summary
+from .extract_text import extract_plain_text_summary
 
 logger = logging.getLogger("hermes_detox.extractors")
 

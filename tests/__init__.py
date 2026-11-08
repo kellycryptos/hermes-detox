@@ -1,5 +1,6 @@
 """Detox test suite."""
 
+import importlib.util
 import os
 from pathlib import Path
 import sys
@@ -23,3 +24,17 @@ except ImportError:
                 break
             except ImportError:
                 pass
+
+# Load plugin as package identical to Hermes loader
+_PKG_DIR = Path(__file__).resolve().parent.parent
+if "hermes_detox" not in sys.modules:
+    _spec = importlib.util.spec_from_file_location(
+        "hermes_detox",
+        str(_PKG_DIR / "__init__.py"),
+        submodule_search_locations=[str(_PKG_DIR)],
+    )
+    _mod = importlib.util.module_from_spec(_spec)
+    _mod.__package__ = "hermes_detox"
+    _mod.__path__ = [str(_PKG_DIR)]
+    sys.modules["hermes_detox"] = _mod
+    _spec.loader.exec_module(_mod)

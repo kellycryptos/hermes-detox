@@ -22,10 +22,44 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from config import DetoxConfig, set_config
-from detox_tools.tool_inspect import handle_detox_inspect
-from store import EvidenceStore, set_storage_dir_override
-import __init__ as detox_mod
+# Ensure agent.redact is importable
+try:
+    import agent.redact
+except ImportError:
+    for candidate in (
+        str(Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"),
+        r"C:\Users\HP\AppData\Local\hermes\hermes-agent",
+        "/tmp/hermes-agent",
+        str(REPO_ROOT.parent / "hermes-repo"),
+        str(REPO_ROOT.parent / "hermes_pkg"),
+    ):
+        if candidate and Path(candidate).is_dir() and candidate not in sys.path:
+            sys.path.insert(0, candidate)
+            try:
+                import agent.redact
+                break
+            except ImportError:
+                pass
+
+import importlib.util
+if "hermes_detox" not in sys.modules:
+    spec = importlib.util.spec_from_file_location(
+        "hermes_detox",
+        str(REPO_ROOT / "__init__.py"),
+        submodule_search_locations=[str(REPO_ROOT)],
+    )
+    mod = importlib.util.module_from_spec(spec)
+    mod.__package__ = "hermes_detox"
+    mod.__path__ = [str(REPO_ROOT)]
+    sys.modules["hermes_detox"] = mod
+    spec.loader.exec_module(mod)
+else:
+    mod = sys.modules["hermes_detox"]
+
+from hermes_detox.config import DetoxConfig, set_config
+from hermes_detox.detox_tools.tool_inspect import handle_detox_inspect
+from hermes_detox.store import EvidenceStore, set_storage_dir_override
+detox_mod = mod
 
 
 def run_amputation_demo() -> None:

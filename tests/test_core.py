@@ -36,24 +36,33 @@ except ImportError:
             except ImportError:
                 pass
 
-# Import using module name from root
+# Import plugin as a package with submodule_search_locations
 import importlib.util
-_init_path = REPO_ROOT / "__init__.py"
-_spec = importlib.util.spec_from_file_location("hermes_detox", str(_init_path))
-_mod = importlib.util.module_from_spec(_spec)
-sys.modules["hermes_detox"] = _mod
-_spec.loader.exec_module(_mod)
+if "hermes_detox" not in sys.modules:
+    _init_path = REPO_ROOT / "__init__.py"
+    _spec = importlib.util.spec_from_file_location(
+        "hermes_detox",
+        str(_init_path),
+        submodule_search_locations=[str(REPO_ROOT)],
+    )
+    _mod = importlib.util.module_from_spec(_spec)
+    _mod.__package__ = "hermes_detox"
+    _mod.__path__ = [str(REPO_ROOT)]
+    sys.modules["hermes_detox"] = _mod
+    _spec.loader.exec_module(_mod)
+else:
+    _mod = sys.modules["hermes_detox"]
 
 on_transform_tool_result = _mod.on_transform_tool_result
 on_transform_terminal_output = _mod.on_transform_terminal_output
 handle_detox_slash_command = _mod.handle_detox_slash_command
 register = _mod.register
 
-from report import build_compact_report
-from store import EvidenceStore, set_storage_dir_override
-from detox_tools.tool_inspect import handle_detox_inspect
-from detox_tools.tool_search import handle_detox_search
-from detox_tools.tool_status import handle_detox_status
+from hermes_detox.report import build_compact_report
+from hermes_detox.store import EvidenceStore, set_storage_dir_override
+from hermes_detox.detox_tools.tool_inspect import handle_detox_inspect
+from hermes_detox.detox_tools.tool_search import handle_detox_search
+from hermes_detox.detox_tools.tool_status import handle_detox_status
 
 
 class MockHermesContext:

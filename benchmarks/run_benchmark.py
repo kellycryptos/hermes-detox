@@ -15,15 +15,46 @@ import tempfile
 import time
 from typing import Any, Dict, List, Tuple
 
-# Ensure repo root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parent.parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
-from config import DetoxConfig, set_config
-from detox_tools.tool_inspect import handle_detox_inspect
-from store import EvidenceStore, set_storage_dir_override
-import __init__ as detox_mod
+# Ensure agent.redact is importable for benchmark execution
+try:
+    import agent.redact
+except ImportError:
+    for candidate in (
+        str(Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"),
+        r"C:\Users\HP\AppData\Local\hermes\hermes-agent",
+        "/tmp/hermes-agent",
+        str(REPO_ROOT.parent / "hermes-repo"),
+        str(REPO_ROOT.parent / "hermes_pkg"),
+    ):
+        if candidate and Path(candidate).is_dir() and candidate not in sys.path:
+            sys.path.insert(0, candidate)
+            try:
+                import agent.redact
+                break
+            except ImportError:
+                pass
+
+import importlib.util
+if "hermes_detox" not in sys.modules:
+    spec = importlib.util.spec_from_file_location(
+        "hermes_detox",
+        str(REPO_ROOT / "__init__.py"),
+        submodule_search_locations=[str(REPO_ROOT)],
+    )
+    mod = importlib.util.module_from_spec(spec)
+    mod.__package__ = "hermes_detox"
+    mod.__path__ = [str(REPO_ROOT)]
+    sys.modules["hermes_detox"] = mod
+    spec.loader.exec_module(mod)
+else:
+    mod = sys.modules["hermes_detox"]
+
+from hermes_detox.config import DetoxConfig, set_config
+from hermes_detox.detox_tools.tool_inspect import handle_detox_inspect
+from hermes_detox.store import EvidenceStore, set_storage_dir_override
+detox_mod = mod
 
 on_transform_tool_result = detox_mod.on_transform_tool_result
 on_transform_terminal_output = detox_mod.on_transform_terminal_output
@@ -287,8 +318,8 @@ def _generate_scenarios() -> List[Dict[str, Any]]:
     # Scenario 9: Output with Secret-Looking Strings (API keys)
     # The mock token is assembled dynamically at runtime from string fragments to prevent
     # static security scanners (e.g. Hermes plugin_guard hardcoded_secret) from flagging
-    # benchmark test fixtures, while verifying Detox's verbatim storage fidelity for
-    # credential-bearing payloads.
+    # benchmark test fixtures. Per review item 1, Detox redacts secrets with Hermes helpers
+    # prior to storage, so stored output verifies redacted fidelity (raw secret masked, line preserved).
     mock_token_prefix = "sk-demo"
     mock_token_body = "1234567890abcdef"
     mock_secret = f"{mock_token_prefix}-{mock_token_body}"
@@ -304,7 +335,8 @@ def _generate_scenarios() -> List[Dict[str, Any]]:
         "raw_output": sec_body,
         "is_terminal": False,
         "target_line_num": _find_line(sec_body, mock_secret),
-        "expected_snippet": mock_secret,
+        "expected_snippet": "DEPLOY_TOKEN=",
+        "forbidden_snippet": mock_secret,
         "critical_signals": [
             "DEPLOY_TOKEN",
         ],
@@ -420,6 +452,11 @@ def run_benchmark() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
 
         # 3. Storage round-trip check
         roundtrip_ok = sc["expected_snippet"] in retrieved_line
+        if "forbidden_snippet" in sc:
+            assert sc["forbidden_snippet"] not in retrieved_line, f"Secret was not redacted in {name}"
+            storage_status = "PASS (redacted)" if roundtrip_ok else "FAIL"
+        else:
+            storage_status = "PASS (verbatim)" if roundtrip_ok else "FAIL"
 
         reduction_pct = (1.0 - (rep_len / baseline_len)) * 100.0
         baseline_tok_est = baseline_len // 4
@@ -438,7 +475,7 @@ def run_benchmark() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
             "tokens_saved_est": tokens_saved_est,
             "transform_ms": round(transform_ns / 1_000_000.0, 2),
             "inspect_ms": round(inspect_ns / 1_000_000.0, 2),
-            "storage_roundtrip": "PASS (verbatim)" if roundtrip_ok else "FAIL",
+            "storage_roundtrip": storage_status,
         }
         results.append(res)
         captured_note = f" (captured: {orig_len:,})" if orig_len != baseline_len else ""

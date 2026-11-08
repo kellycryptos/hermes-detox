@@ -18,19 +18,34 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from config import DEFAULT_EXCLUDED_TOOLS, DetoxConfig, get_config, set_config
-from detox_tools.tool_inspect import handle_detox_inspect
-from detox_tools.tool_search import handle_detox_search
-from detox_tools.tool_status import handle_detox_status
-from retention import maybe_run_retention_prune, run_retention_prune
-from store import EvidenceStore, get_db_path, set_storage_dir_override
-import __init__ as detox_mod
-from __init__ import on_transform_terminal_output, on_transform_tool_result
+import importlib.util
+if "hermes_detox" not in sys.modules:
+    _init_path = REPO_ROOT / "__init__.py"
+    _spec = importlib.util.spec_from_file_location(
+        "hermes_detox",
+        str(_init_path),
+        submodule_search_locations=[str(REPO_ROOT)],
+    )
+    _mod = importlib.util.module_from_spec(_spec)
+    _mod.__package__ = "hermes_detox"
+    _mod.__path__ = [str(REPO_ROOT)]
+    sys.modules["hermes_detox"] = _mod
+    _spec.loader.exec_module(_mod)
+else:
+    _mod = sys.modules["hermes_detox"]
 
-on_transform_tool_result = detox_mod.on_transform_tool_result
-on_transform_terminal_output = detox_mod.on_transform_terminal_output
-on_session_reset = detox_mod.on_session_reset
-handle_detox_slash_command = detox_mod.handle_detox_slash_command
+from hermes_detox.config import DEFAULT_EXCLUDED_TOOLS, DetoxConfig, get_config, set_config
+from hermes_detox.detox_tools.tool_inspect import handle_detox_inspect
+from hermes_detox.detox_tools.tool_search import handle_detox_search
+from hermes_detox.detox_tools.tool_status import handle_detox_status
+from hermes_detox.retention import maybe_run_retention_prune, run_retention_prune
+from hermes_detox.store import EvidenceStore, get_db_path, set_storage_dir_override
+
+detox_mod = _mod
+on_transform_tool_result = _mod.on_transform_tool_result
+on_transform_terminal_output = _mod.on_transform_terminal_output
+on_session_reset = _mod.on_session_reset
+handle_detox_slash_command = _mod.handle_detox_slash_command
 
 
 class TestDetoxSafetyAndRetention(unittest.TestCase):

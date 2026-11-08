@@ -14,19 +14,14 @@ import shlex
 import sys
 from typing import Any, Callable, Dict, Optional
 
-# Ensure package root is importable without shadowing Hermes packages
-_PKG_ROOT = Path(__file__).resolve().parent
-if str(_PKG_ROOT) not in sys.path:
-    sys.path.append(str(_PKG_ROOT))
-
-from config import DetoxConfig, get_config, load_config, set_config
-from detox_tools.tool_inspect import SCHEMA as INSPECT_SCHEMA, handle_detox_inspect
-from detox_tools.tool_search import SCHEMA as SEARCH_SCHEMA, handle_detox_search
-from detox_tools.tool_status import SCHEMA as STATUS_SCHEMA, handle_detox_status
-from extractors import detect_and_extract_summary
-from report import build_compact_report
-from retention import maybe_run_retention_prune, run_retention_prune
-from store import EvidenceStore
+from .config import DetoxConfig, get_config, load_config, set_config
+from .detox_tools.tool_inspect import SCHEMA as INSPECT_SCHEMA, handle_detox_inspect
+from .detox_tools.tool_search import SCHEMA as SEARCH_SCHEMA, handle_detox_search
+from .detox_tools.tool_status import SCHEMA as STATUS_SCHEMA, handle_detox_status
+from .extractors import detect_and_extract_summary
+from .report import build_compact_report
+from .retention import maybe_run_retention_prune, run_retention_prune
+from .store import EvidenceStore
 
 logger = logging.getLogger("hermes_detox")
 

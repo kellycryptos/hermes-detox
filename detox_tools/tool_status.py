@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
-from store import EvidenceStore
+from ..store import EvidenceStore
 
 logger = logging.getLogger("hermes_detox.tool_status")
 
