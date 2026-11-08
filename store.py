@@ -58,11 +58,7 @@ def resolve_data_dir() -> Path:
     except Exception:
         pass
 
-    # 3. Fallback to ~/.hermes/plugin-data/hermes-detox
-    base = Path.home() / ".hermes"
-    path = base / "plugin-data" / "hermes-detox"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    raise RuntimeError("Could not resolve Hermes data directory via plugins.plugin_storage or hermes_constants.get_hermes_home()")
 
 
 def get_db_path() -> Path:

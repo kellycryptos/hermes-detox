@@ -205,25 +205,6 @@ def on_transform_terminal_output(
         if ";base64," in output[:500] or "base64," in output[:100]:
             return None
 
-        # If Hermes's foreground stream collector already applied inline truncation ([OUTPUT TRUNCATED),
-        # recover the full un-truncated stream from Hermes's local spill cache if available.
-        if "[OUTPUT TRUNCATED" in output:
-            try:
-                import os as _os
-                import time as _time
-                from pathlib import Path as _Path
-                _hh = _os.environ.get("HERMES_HOME")
-                _base = _Path(_hh) if _hh else (_Path(_os.environ.get("LOCALAPPDATA", "")) / "hermes" if _os.name == "nt" else _Path.home() / ".hermes")
-                _spill_dir = _base / "cache" / "terminal-output"
-                if _spill_dir.is_dir():
-                    _spills = sorted(_spill_dir.glob("out-*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
-                    if _spills and (_time.time() - _spills[0].stat().st_mtime < 30):
-                        _spill_text = _spills[0].read_text(encoding="utf-8", errors="replace")
-                        if len(_spill_text) > len(output):
-                            output = _spill_text
-            except Exception as _spill_err:
-                logger.debug("Could not recover from terminal spill file: %s", _spill_err)
-
         # Ensure Hermes redaction helper is available; fail open without storing if unavailable
         try:
             from agent.redact import redact_terminal_output
