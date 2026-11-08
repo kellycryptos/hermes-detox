@@ -270,22 +270,42 @@ def on_transform_terminal_output(
         return None
 
 
-def on_post_compaction(old_session_id: str = "", new_session_id: str = "", **kwargs: Any) -> None:
-    """Relink stored evidence records when a session is compacted or migrated."""
+def on_post_compaction(
+    session_id: str = "",
+    old_session_id: str = "",
+    new_session_id: str = "",
+    **kwargs: Any,
+) -> None:
+    """Relink stored evidence records when a session is compacted or migrated.
+
+    Hermes passes session_id (the active/new session ID) and old_session_id.
+    """
     try:
-        if old_session_id and new_session_id:
+        target_session_id = new_session_id or session_id
+        if old_session_id and target_session_id and old_session_id != target_session_id:
             store = EvidenceStore.get_instance()
-            store.relink_session(old_session_id, new_session_id)
+            store.relink_session(old_session_id, target_session_id)
     except Exception as exc:
         logger.debug("on_post_compaction error: %s", exc)
 
 
-def on_session_delete(session_id: str = "", **kwargs: Any) -> None:
-    """Purge stored evidence records when a session is deleted."""
+def on_session_delete(
+    session_id: str = "",
+    deleted_ids: Optional[List[str]] = None,
+    **kwargs: Any,
+) -> None:
+    """Purge stored evidence records when a session or batch of sessions is deleted."""
     try:
+        store = EvidenceStore.get_instance()
+        ids_to_purge = set()
         if session_id:
-            store = EvidenceStore.get_instance()
-            store.purge_session(session_id)
+            ids_to_purge.add(session_id)
+        if deleted_ids:
+            for s_id in deleted_ids:
+                if s_id:
+                    ids_to_purge.add(s_id)
+        for s_id in ids_to_purge:
+            store.purge_session(s_id)
     except Exception as exc:
         logger.debug("on_session_delete error: %s", exc)
 
@@ -394,6 +414,8 @@ def register(ctx: Any) -> None:
         ctx.register_hook("transform_tool_result", on_transform_tool_result)
         ctx.register_hook("transform_terminal_output", on_transform_terminal_output)
         ctx.register_hook("on_session_reset", on_session_reset)
+        ctx.register_hook("post_compaction", on_post_compaction)
+        ctx.register_hook("on_session_delete", on_session_delete)
 
     if hasattr(ctx, "register_tool") and callable(ctx.register_tool):
         ctx.register_tool(

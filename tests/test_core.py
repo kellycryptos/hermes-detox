@@ -108,6 +108,8 @@ class TestDetoxCore(unittest.TestCase):
         self.assertIn("transform_tool_result", ctx.hooks)
         self.assertIn("transform_terminal_output", ctx.hooks)
         self.assertIn("on_session_reset", ctx.hooks)
+        self.assertIn("post_compaction", ctx.hooks)
+        self.assertIn("on_session_delete", ctx.hooks)
         self.assertIn("detox_inspect", ctx.tools)
         self.assertIn("detox_search", ctx.tools)
         self.assertIn("detox_status", ctx.tools)
@@ -336,6 +338,64 @@ class TestDetoxCore(unittest.TestCase):
         self.assertEqual(deleted, 1)
         record_after = store.get(ev_id, session_id="sess_new")
         self.assertIsNone(record_after)
+
+    def test_hermes_lifecycle_hooks_compaction_and_delete(self):
+        """Test that post_compaction and on_session_delete fire through Hermes's own hook invocation."""
+        store = EvidenceStore.get_instance()
+        ev_id = store.save(
+            session_id="sess_pre_compact",
+            tool_name="tool_compaction",
+            original_output="output for compaction test\n" * 50,
+            transformed_size=60,
+        )
+
+        try:
+            from hermes_cli.plugins import PluginManager, PluginContext, PluginManifest
+            manifest = PluginManifest(
+                name="hermes-detox",
+                version="0.1.0",
+                description="Detox",
+                author="kellycryptos",
+                provides_hooks=[
+                    "transform_tool_result",
+                    "transform_terminal_output",
+                    "on_session_reset",
+                    "post_compaction",
+                    "on_session_delete",
+                ],
+            )
+            pm = PluginManager()
+            ctx = PluginContext(manifest, pm)
+            register(ctx)
+
+            # 1. Fire post_compaction through Hermes's own hook invocation
+            pm.invoke_hook("post_compaction", session_id="sess_post_compact", old_session_id="sess_pre_compact")
+
+            # Check relink happened
+            rec = store.get(ev_id, session_id="sess_post_compact")
+            self.assertIsNotNone(rec, "Evidence must be relinked to sess_post_compact via Hermes hook")
+            self.assertEqual(rec["session_id"], "sess_post_compact")
+
+            # Check old session ID no longer resolves scoped query
+            rec_old = store.get(ev_id, session_id="sess_pre_compact")
+            self.assertIsNone(rec_old, "Old session ID must not find relinked evidence in scoped query")
+
+            # 2. Fire on_session_delete through Hermes's own hook invocation
+            pm.invoke_hook("on_session_delete", session_id="sess_post_compact", reason="delete")
+
+            # Check purge happened
+            rec_purged = store.get(ev_id, session_id="sess_post_compact")
+            self.assertIsNone(rec_purged, "Evidence must be purged after on_session_delete via Hermes hook")
+        except ImportError:
+            # Fallback if hermes_cli not present: fire through module callbacks
+            from hermes_detox import on_post_compaction, on_session_delete
+            on_post_compaction(session_id="sess_post_compact", old_session_id="sess_pre_compact")
+            rec = store.get(ev_id, session_id="sess_post_compact")
+            self.assertIsNotNone(rec)
+            self.assertEqual(rec["session_id"], "sess_post_compact")
+
+            on_session_delete(session_id="sess_post_compact")
+            self.assertIsNone(store.get(ev_id, session_id="sess_post_compact"))
 
     def test_background_process_output_ignored(self):
         """Background process notifications (returncode=None, env_type empty) must NOT create evidence."""

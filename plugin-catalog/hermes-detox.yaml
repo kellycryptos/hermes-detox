@@ -8,7 +8,7 @@ description: >-
 maintainer: kellycryptos
 tier: community
 category: tools
-requires_hermes: ">=0.19.0"
+requires_hermes: ">=0.22.3"
 docs_url: https://github.com/kellycryptos/hermes-detox#readme
 readme: true
 platforms: []
@@ -21,5 +21,7 @@ capabilities:
     - transform_terminal_output
     - transform_tool_result
     - on_session_reset
+    - post_compaction
+    - on_session_delete
   provides_middleware: []
   requires_env: []

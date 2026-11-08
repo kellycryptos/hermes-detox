@@ -189,10 +189,10 @@ These figures come from synthetic fixtures built to resemble common developer ou
 | Directory listing (580 files) | 15,155 | 910 | 94.0% | 3,561 |
 | Server trace log (420 lines) | 35,448 | 1,822 | 94.9% | 8,407 |
 | Massive terminal log (106,913 captured, baseline capped at 50,000) | 50,000 | 1,487 | 97.0% | 12,129 |
-| Output with secret-like strings | 11,752 | 1,032 | 91.2% | 2,680 |
+| Output with secret-like strings | 11,752 | 1,021 | 91.3% | 2,683 |
 | Short output below threshold | 1,095 | 1,095 | 0.0% | 0 |
 | Output the 0.55 gate rejects | 7,500 | 7,500 | 0.0% | 0 |
-| **Total** | **176,092** | **20,582** | **about 88%** | **about 38,800 (estimate)** |
+| **Total** | **176,092** | **20,571** | **about 88%** | **about 38,800 (estimate)** |
 
 On the author's machine, transforming an output took tens of milliseconds and retrieving lines took under a millisecond. Run the benchmark to see figures for your hardware.
 
@@ -204,16 +204,16 @@ On the author's machine, transforming an output took tens of milliseconds and re
 
 ## Compatibility
 
-- Requires **Hermes Agent $\ge 0.19.0$**.
-- Developed against Hermes Agent 0.19.0 and checked against the plugin validator on the current main branch.
-- Registers three tools (`detox_inspect`, `detox_search`, `detox_status`), three hooks (`transform_tool_result`, `transform_terminal_output`, `on_session_reset`), and one slash command (`/detox`).
+- Requires **Hermes Agent $\ge 0.22.3$** (for `post_compaction` and `on_session_delete` hook lifecycle support).
+- Developed against Hermes Agent 0.22.3+ and checked against the plugin validator on the current main branch.
+- Registers three tools (`detox_inspect`, `detox_search`, `detox_status`), five hooks (`transform_tool_result`, `transform_terminal_output`, `on_session_reset`, `post_compaction`, `on_session_delete`), and one slash command (`/detox`).
 - If another plugin returns a string from `transform_tool_result` first, Hermes uses that string and Detox's result for that call is skipped.
 
 ---
 
 ## Known limitations
 
-1. **Session IDs change when Hermes compacts a conversation.** `detox_inspect` and `detox_search` with an explicit evidence ID keep working across that change, because the ID itself is the authorization. A search without an ID covers only the current session, so evidence saved before a compaction is found by ID, not by unscoped search.
+1. **Compaction session migration:** When Hermes compacts a conversation, Detox's `post_compaction` hook relinks stored evidence to the new session ID so unscoped searches continue to resolve. In older Hermes runtimes without this hook, evidence must be accessed by explicit evidence ID.
 2. **Reports are built by pattern-based extractors.** They don't understand meaning, so an unusual log format may fall back to the generic report.
 3. **Benchmarks use synthetic fixtures,** and token counts are estimates.
 4. **Effect on agent task success has not been evaluated.**
@@ -232,7 +232,7 @@ hermes plugins validate . --install-deps
 hermes plugins doctor . --ci
 ```
 
-The test suite contains **75 tests** (74 passed, 1 skipped when Hermes CLI is absent).
+The test suite contains **79 tests** (78 passed, 1 skipped when Hermes CLI is absent).
 
 The last two commands need a Hermes version that includes them. Use a current source install of Hermes Agent.
 

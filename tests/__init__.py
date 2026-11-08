@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import sys
 
-# Ensure agent.redact from hermes-agent is importable for tests
+# Ensure agent.redact and hermes_cli from hermes-agent are importable for tests
 try:
     import agent.redact
 except ImportError:
@@ -21,6 +21,19 @@ except ImportError:
             sys.path.insert(0, candidate)
             try:
                 import agent.redact
+                break
+            except ImportError:
+                pass
+
+try:
+    from hermes_cli.plugins import PluginManager
+except ImportError:
+    import glob
+    for p in glob.glob(str(Path.home() / "AppData" / "Local" / "hermes" / "installs" / "*" / "environments" / "*" / "venv" / "Lib" / "site-packages")):
+        if os.path.isdir(p) and p not in sys.path:
+            sys.path.insert(0, p)
+            try:
+                from hermes_cli.plugins import PluginManager
                 break
             except ImportError:
                 pass
