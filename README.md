@@ -2,6 +2,7 @@
 
 Your context window deserves protection.
 
+[![Catalog](https://img.shields.io/badge/hermes%20catalog-admitted-brightgreen.svg)](https://hermes-agent.nousresearch.com/marketplace/hermes-detox)
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20external-success.svg)](#security-and-privacy)
 [![Hermes](https://img.shields.io/badge/hermes--agent-%3E%3D0.22.3-blueviolet.svg)](#compatibility)
@@ -12,8 +13,9 @@ Hermes Detox is a plugin for [Hermes Agent](https://hermes-agent.nousresearch.co
 
 The model reads less. Nothing is thrown away.
 
-Built for the Hermes Agent Plugin Hackathon.
+Built for the Hermes Agent Plugin Hackathon — **Officially merged into the [Hermes Plugin Catalog](https://hermes-agent.nousresearch.com/marketplace/hermes-detox) ([PR #150642](https://github.com/NousResearch/hermes-agent/pull/150642))**.
 
+> 🌐 **View on Hermes Marketplace:** [hermes-agent.nousresearch.com/marketplace/hermes-detox](https://hermes-agent.nousresearch.com/marketplace/hermes-detox)  
 > 📺 **Watch the Walkthrough Demo Video on X:** [x.com/Kellycryptos/status/2119068376085458987](https://x.com/Kellycryptos/status/2119068376085458987)
 
 ---
@@ -66,6 +68,15 @@ A compact report contains the tool name, the original size, an evidence ID, the 
 ---
 
 ## Install
+
+Install directly from the official Hermes Plugin Catalog:
+
+```bash
+hermes plugins install hermes-detox
+hermes plugins enable hermes-detox
+```
+
+Or install via GitHub repository shorthand:
 
 ```bash
 hermes plugins install kellycryptos/hermes-detox
@@ -255,6 +266,13 @@ The last two commands need a Hermes version that includes them. Use a current so
 ## Hackathon entry
 
 Hermes Detox was built for the **Hermes Agent Plugin Hackathon**. It changes how Hermes handles tool output, using hooks, tools, and persistent local state.
+
+| Artifact | Link |
+|---|---|
+| **Official Catalog PR** | [NousResearch/hermes-agent#150642](https://github.com/NousResearch/hermes-agent/pull/150642) *(Merged by @teknium1)* |
+| **Marketplace Page** | [hermes-agent.nousresearch.com/marketplace/hermes-detox](https://hermes-agent.nousresearch.com/marketplace/hermes-detox) |
+| **Walkthrough Demo Video** | [x.com/Kellycryptos/status/2119068376085458987](https://x.com/Kellycryptos/status/2119068376085458987) |
+| **Full Benchmarks** | [docs/stage-4-benchmark.md](docs/stage-4-benchmark.md) (~88% token reduction) |
 
 - **Usefulness:** It protects context on the outputs that waste the most of it, keeping full originals searchable and inspectable on demand.
 - **Reliability:** It fails open, skips what it shouldn't touch, and is covered by automated tests for every fallback path.
