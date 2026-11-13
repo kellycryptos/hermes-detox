@@ -215,6 +215,7 @@ On the author's machine, transforming an output took tens of milliseconds and re
 
 ## Compatibility
 
+- **Platforms:** Linux, macOS, Windows.
 - Requires **Hermes Agent >=0.22.3** (for `post_compaction` and `on_session_delete` hook lifecycle support).
 - Checked against the plugin validator and doctor on the current main branch.
 - Registers three tools (`detox_inspect`, `detox_search`, `detox_status`), five hooks (`transform_tool_result`, `transform_terminal_output`, `on_session_reset`, `post_compaction`, `on_session_delete`), and one slash command (`/detox`).
