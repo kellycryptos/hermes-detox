@@ -20,6 +20,20 @@ Built for the Hermes Agent Plugin Hackathon — **Officially merged into the [He
 
 ---
 
+
+## Screenshots
+
+![/detox status showing 98% reduction](docs/screenshots/detox-status.jpg)
+
+*`/detox status` — 580k characters in, 11.6k out (98% reduction), full originals still stored.*
+
+![Model recovers the exact error line](docs/screenshots/detox-inspect.jpg)
+
+*The model receives a compact report, then recovers the exact critical error line on demand.*
+
+---
+
+
 ## Why this matters
 
 Agents spend most of their working life reading tool output: test runs, build logs, directory listings, API responses. A single failing test suite can put thousands of tokens of passing lines in front of the model, and every one of them costs money, pushes useful history out of the window, and gives the model more noise to dig through.
