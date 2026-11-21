@@ -11,7 +11,10 @@ category: tools
 requires_hermes: ">=0.22.3"
 docs_url: https://github.com/kellycryptos/hermes-detox#readme
 readme: true
-platforms: []
+platforms:
+  - linux
+  - darwin
+  - windows
 capabilities:
   provides_tools:
     - detox_inspect

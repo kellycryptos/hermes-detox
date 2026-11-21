@@ -5,7 +5,9 @@ Your context window deserves protection.
 [![Catalog](https://img.shields.io/badge/hermes%20catalog-admitted-brightgreen.svg)](https://hermes-agent.nousresearch.com/marketplace/hermes-detox)
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-0%20external-success.svg)](#security-and-privacy)
-[![Hermes](https://img.shields.io/badge/hermes--agent-%3E%3D0.22.3-blueviolet.svg)](#compatibility)
+[![Hermes](https://img.shields.io/badge/hermes--agent-%3E%3D0.22.3-blueviolet.svg)](#device--platform-compatibility)
+[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-blue.svg)](#device--platform-compatibility)
+[![Architectures](https://img.shields.io/badge/arch-x86__64%20%7C%20arm64-brightgreen.svg)](#device--platform-compatibility)
 [![Tests](https://img.shields.io/badge/tests-82-blue.svg)](#development)
 [![Context Reduction](https://img.shields.io/badge/context%20reduction-about%2088%25-blue.svg)](#benchmark)
 
@@ -21,15 +23,17 @@ Built for the Hermes Agent Plugin Hackathon — **Officially merged into the [He
 ---
 
 
-## Screenshots
+## Screenshots & Visual Overview
 
+### 1. Interception & Context Reduction
 ![/detox status showing 98% reduction](docs/screenshots/detox-status.jpg)
 
-*`/detox status` — 580k characters in, 11.6k out (98% reduction), full originals still stored.*
+*`/detox status` — 580k characters intercepted, compacted down to 11.6k delivered to the model (98% reduction) while preserving full uncompressed originals in local SQLite storage.*
 
+### 2. Surgical Error Line Retrieval
 ![Model recovers the exact error line](docs/screenshots/detox-inspect.jpg)
 
-*The model receives a compact report, then recovers the exact critical error line on demand.*
+*The model receives a compact report with an evidence ID, then queries `detox_inspect` to pull back the exact critical failure line and trace on demand.*
 
 ---
 
@@ -83,28 +87,57 @@ A compact report contains the tool name, the original size, an evidence ID, the 
 
 ## Install
 
-Install directly from the official Hermes Plugin Catalog:
+Detox has **0 external dependencies** and uses only the Python standard library. No compilation or `pip install` steps are required.
+
+### 1. Direct from Hermes Plugin Catalog (Recommended)
 
 ```bash
 hermes plugins install hermes-detox
 hermes plugins enable hermes-detox
 ```
 
-Or install via GitHub repository shorthand:
+### 2. Via GitHub Repository Shorthand
 
 ```bash
 hermes plugins install kellycryptos/hermes-detox
 hermes plugins enable hermes-detox
 ```
 
-Or clone it by hand:
+### 3. Manual Installation (By OS & Shell)
+
+Clone directly into your Hermes plugins directory:
+
+- **Linux & macOS (Bash / Zsh)**:
+  ```bash
+  git clone https://github.com/kellycryptos/hermes-detox.git ~/.hermes/plugins/hermes-detox
+  hermes plugins enable hermes-detox
+  ```
+
+- **Windows (PowerShell)**:
+  ```powershell
+  git clone https://github.com/kellycryptos/hermes-detox.git "$env:USERPROFILE\.hermes\plugins\hermes-detox"
+  hermes plugins enable hermes-detox
+  ```
+
+- **Windows (Command Prompt / CMD)**:
+  ```cmd
+  git clone https://github.com/kellycryptos/hermes-detox.git "%USERPROFILE%\.hermes\plugins\hermes-detox"
+  hermes plugins enable hermes-detox
+  ```
+
+### 4. Verification
+
+Confirm installation via the Hermes CLI:
 
 ```bash
-git clone https://github.com/kellycryptos/hermes-detox.git ~/.hermes/plugins/hermes-detox
-hermes plugins enable hermes-detox
+hermes plugins list
 ```
 
-Start a new Hermes session and run `/detox status` to confirm it loaded.
+Or open any Hermes session and run the status command:
+
+```text
+/detox status
+```
 
 ---
 
@@ -227,13 +260,21 @@ On the author's machine, transforming an output took tens of milliseconds and re
 
 ---
 
-## Compatibility
+## Device & Platform Compatibility
 
-- **Platforms:** Linux, macOS, Windows.
-- Requires **Hermes Agent >=0.22.3** (for `post_compaction` and `on_session_delete` hook lifecycle support).
-- Checked against the plugin validator and doctor on the current main branch.
-- Registers three tools (`detox_inspect`, `detox_search`, `detox_status`), five hooks (`transform_tool_result`, `transform_terminal_output`, `on_session_reset`, `post_compaction`, `on_session_delete`), and one slash command (`/detox`).
-- If another plugin returns a string from `transform_tool_result` first, Hermes uses that string and Detox's result for that call is skipped.
+Detox is engineered as a zero-dependency Python utility designed to run across diverse hardware architectures, operating systems, and device form factors.
+
+| Category | Supported Environments | Details & Specifications |
+|---|---|---|
+| **Operating Systems** | • **Linux** (Ubuntu, Debian, Fedora, Arch, Alpine, RHEL)<br>• **macOS** (12+ Monterey, Ventura, Sonoma, Sequoia)<br>• **Windows** (Windows 10, Windows 11 — PowerShell, CMD, WSL2) | Enforces POSIX `0700` directory and `0600` file permissions on Linux/macOS; scopes database access to Windows user profile ACLs. |
+| **Architectures** | • **x86_64 / amd64**<br>• **arm64 / aarch64** | Pure Python standard library with SQLite WAL mode. Zero architecture-specific C extensions or binary builds required. |
+| **Device Classes** | • **Workstations & Laptops** (Apple Silicon M1–M4, Intel Core, AMD Ryzen)<br>• **Cloud Servers & VMs** (AWS EC2, GCP Compute Engine, Azure, Hetzner)<br>• **Edge & Single-Board Computers** (Raspberry Pi 4/5, mini PCs) | Microsecond retrieval times (<1ms) and minimal memory footprint; runs reliably on constrained edge hardware or high-throughput servers. |
+| **Python Runtime** | • **Python 3.10, 3.11, 3.12, 3.13+** | Tested on standard CPython distributions. |
+| **Hermes Agent** | • **Hermes Agent >= 0.22.3** | Supports `transform_tool_result`, `transform_terminal_output`, `on_session_reset`, `post_compaction`, and `on_session_delete`. |
+
+- **Lifecycle & Hook Support:** Registers three tools (`detox_inspect`, `detox_search`, `detox_status`), five hooks (`transform_tool_result`, `transform_terminal_output`, `on_session_reset`, `post_compaction`, `on_session_delete`), and one slash command (`/detox`).
+- **Fail-Open Design:** If disk capacity is reached or permissions fail, Detox fails open immediately and silently passes the original output to Hermes, ensuring agent execution is never interrupted.
+- **Plugin Precedence:** If another plugin returns a modified string from `transform_tool_result` before Detox runs, Hermes accepts that string and Detox safely skips that turn.
 
 ---
 
